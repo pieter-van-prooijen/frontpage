@@ -50,8 +50,8 @@ $ lein run <path-to-bbpostdump-tidy.xml
 This can take a while (10 minutes with an SSD), see the output of the _run-solr.sh` script to check
 if documents are added correctly.
 
-Inspect the resulting frontpage collection using the Solr admin interface at
-[http://localhost:8983/solr]
+Inspect the resulting frontpage collection using the Solr admin interface
+at [http://localhost:8983/solr]
 
 ## Apache
 Install Apache and change the frontpage vhost defined in the
@@ -77,9 +77,9 @@ Add the following line to your /etc/hosts file
 # Compiling Clojurescript
 To compile the webpage app and making changes to the code, go to the frontpage-client directory and start:
 ```
-lein deps
-lein cljsbuild clean
-lein cljsbuild once
+$ lein deps
+$ lein cljsbuild clean
+$ lein cljsbuild once
 ```
 
 # Running
