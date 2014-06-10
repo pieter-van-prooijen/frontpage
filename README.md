@@ -50,8 +50,8 @@ $ lein run <path-to-bbpostdump-tidy.xml
 This can take a while (10 minutes with an SSD), see the output of the _run-solr.sh` script to check
 if documents are added correctly.
 
-Check if the resulting frontpage collection is present in the Solr admin interface at
-http://localhost:8983/solr/#/frontpage
+Inspect the resulting frontpage collection using the Solr admin interface at
+[http://localhost:8983/solr]
 
 ## Apache
 Install Apache and change the frontpage vhost defined in the
