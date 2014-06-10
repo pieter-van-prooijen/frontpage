@@ -7,8 +7,7 @@ Datascript library).
 
 It uses the BoingBoing blog post dump as its document set.
 
-The name frontpage is inspired by the blog post
-[http://www.pitheringabout.com/?p=1018] by John Pither which describes
+The name frontpage is inspired by [this blog post](http://www.pitheringabout.com/?p=1018) by John Pither which describes
 using Clojure + ElasticSearch to power the Daily Mail newspaper website.
 
 The project contains the following modules:
@@ -50,7 +49,7 @@ $ lein run <path-to-bbpostdump-tidy.xml
 This can take a while.
 
 Check if the resulting frontpage collection is present in the Solr admin interface at
-[http://localhost:8983/solr/#/frontpage]
+http://localhost:8983/solr/#/frontpage
 
 ## Apache
 Install Apache and change the frontpage vhost defined in the
@@ -63,9 +62,9 @@ the browser for Javascript requests.
 
 In Debian / Ubuntu, this would require the following steps (as root):
 ```
-# cp apache-vhost-example.conf /etc/apache2/sites-available/frontpage.conf
-# a2ensite frontpage
-# service apache2 reload
+ # cp apache-vhost-example.conf /etc/apache2/sites-available/frontpage.conf
+ # a2ensite frontpage
+ # service apache2 reload
 ```
 
 Add the following line to your /etc/hosts file
@@ -82,12 +81,12 @@ lein cljsbuild auto
 If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
 cider-jack-in') and execute
 `(require 'init-repl)`. After that, open the  URL
-[http://localhost:9000/index.hml] in the browser. (The Cljs repl doesn't work with the
+http://localhost:9000/index.hml in the browser. (The Cljs repl doesn't work with the
 frontpage.localdomain url because of the urls it generates)
 
 
 # Running
 
-Open the webapp at: [http://frontpage.localdomain] and explore.
+Open the webapp at: http://frontpage.localdomain and explore.
 
 
