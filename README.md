@@ -1,13 +1,14 @@
 # Frontpage
 
-Experiment with a single page webapp which explores a large document set using Clojurescript, Clojure and Solr using
+Experiment with a single page webapp which opens up a large document set
+using Clojurescript, Clojure and Solr, in combination with
 React/Om and other Clojurescript libraries. Currently, it does full-text
 search, facets, url routing, inline editing and statistics (with the
 Datascript library).
 
 It uses the BoingBoing blog post dump as its document set.
 
-The name frontpage is inspired by [this blog post](http://www.pitheringabout.com/?p=1018) by John Pither which describes
+The name Frontpage is inspired by [this blog post](http://www.pitheringabout.com/?p=1018) by John Pither which describes
 using Clojure + ElasticSearch to power the Daily Mail newspaper website.
 
 The project contains the following modules:
@@ -46,7 +47,8 @@ $ lein run --delete
 $ lein run <path-to-bbpostdump-tidy.xml
 ```
 
-This can take a while.
+This can take a while (10 minutes with an SSD), see the output of the _run-solr.sh` script to check
+if documents are added correctly.
 
 Check if the resulting frontpage collection is present in the Solr admin interface at
 http://localhost:8983/solr/#/frontpage
@@ -76,17 +78,32 @@ Add the following line to your /etc/hosts file
 To compile the webpage app and making changes to the code, go to the frontpage-client directory and start:
 ```
 lein deps
-lein cljsbuild auto
+lein cljsbuild clean
+lein cljsbuild once
 ```
+
+# Running
+
+Open the webapp at: http://frontpage.localdomain and explore:
+
+* Type a query in lucene syntax for a full-text search
+* Use the _q_ request parameter to specify a query via the url.
+* Narrow / broaden search results by the facets on the left side, these are toggles.
+* Select a document by clicking on its title, you can then edit the
+  document in-place.
+* The statistics table in the top right lists the number of listed
+  documents, this is reset after a reload.
+
+The app is styled using the [Zurb Foundation](foundation.zurb.com) CSS framework.
+
+# Development
 If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
 cider-jack-in') and execute
 `(require 'init-repl)`. After that, open the  URL
 http://localhost:9000/index.hml in the browser. (The Cljs repl doesn't work with the
 frontpage.localdomain url because of the urls it generates)
 
-
-# Running
-
-Open the webapp at: http://frontpage.localdomain and explore.
+Use the `lein cljsbuild auto` command to automatically compile modified
+Clojurescript files.
 
 
