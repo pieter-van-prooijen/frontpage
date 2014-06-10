@@ -1,0 +1,39 @@
+
+.result-item {
+    margin-bottom: 1em;
+}
+
+.metadata {
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
+.metadata span {
+    margin-left: 1em;
+    font-style: italic;
+}
+
+.summary {
+    margin: 1em;
+}
+
+.summary em {
+    color: red;
+}
+
+.side-nav li.active a span {
+    font-weight: bold;
+}
+
+.current-doc {
+    padding-top: 1em;
+    padding-bottom: 1em;
+    border-top: 2px gray solid;
+    border-bottom: 2px gray solid;
+}
+
+/* BB Html fixes */
+img[align=left] {
+    padding-right: 1em;
+    padding-bottom: 1em;
+}
