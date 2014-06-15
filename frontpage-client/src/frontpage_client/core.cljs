@@ -38,7 +38,8 @@
           (om/update! app :docs docs)
           (om/update! app :highlighting highlighting)
           (om/update! app :nof-docs nof-docs)
-          (om/update! app :facet-fields facet-fields)))))
+          (om/update! app :facet-fields facet-fields)
+          (om/update! app :current nil)))))
   ([app owner]
      "Search with retrieving the parameters from the app state, runs async."
        (let [{:keys [q page page-size selected-facet-values]} @app]
