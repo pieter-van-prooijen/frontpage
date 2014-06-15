@@ -4,7 +4,7 @@
 ;; Use (ns test :require [...]) to pull in namespaces.
 
 (defproject frontpage-client "0.1.0-SNAPSHOT"
-  :description "Browse / Edit Solr documents in React/om"
+  :description "Browse / Edit Solr documents in React/Om"
   :url "http://example.com/FIXME"
 
   :dependencies [[org.clojure/clojure "1.5.1"]
