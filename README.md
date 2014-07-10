@@ -98,6 +98,6 @@ Clojurescript files.
 # Todo
 Use solr cell to extract the html content from the body of a post (see
 https://cwiki.apache.org/confluence/display/solr/Uploading+Data+with+Solr+Cell+using+Apache+Tika).
-The import ses jsoup to extract the text, but this is not usable when
-editing documents.
+The import uses jsoup to extract the text, but this is not available when
+editing documents using Clojurescript.
 
