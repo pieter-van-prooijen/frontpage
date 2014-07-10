@@ -56,7 +56,7 @@
 (defn search-box [app owner]
   (reify
     om/IRender
-    (render [this]
+    (render [_]
       (dom/div #js {:className "row"}
                (dom/div #js {:className "large-1 columns"}
                         ( dom/label #js {:className "right inline" :htmlFor "query"} "query:"))
@@ -88,12 +88,12 @@
   (reify
     ;; When seeing a new document, revert to the initial non-current / non editing state
     om/IWillReceiveProps
-    (will-receive-props [this next-doc]
+    (will-receive-props [_ next-doc]
       (when-let [prev-doc (om/get-props owner)]
         (when-not (= (:id prev-doc) (:id next-doc))
           (om/set-state! owner :current false))))
     om/IRender
-    (render [this]
+    (render [_]
       (apply dom/div #js {:className "result-item"} 
              (concat
               [(dom/h4 nil
@@ -104,63 +104,29 @@
                 [(om/build frontpage-client.document/current-doc doc
                            {:opts {:doc-changed-fn (partial row-doc-changed doc)}})]
                 [(when highlighting 
+                   ;; FIXME: highlighting may contain malformed html which will cause invariant errors
+                   ;; in React.
                    (frontpage-client.util/html-dangerously dom/div {:className "summary"} (first (:text highlighting))))
                  (frontpage-client.document/metadata doc)]))))))
 
 (defn result-list [app owner]
   (reify
     om/IRender
-    (render [this]
+    (render [_]
       (let [pagination-opts {:opts {:page-changed-fn (fn [page] 
                                                        (search app owner))}}]
         (dom/div #js {:className "row"}
                  (dom/h2 nil (str (:nof-docs app) " " "Results"))
                  (om/build frontpage-client.pagination/pagination app pagination-opts)
                  (apply dom/div #js {:className "row"}
-                        (for [doc (:docs app)]
+                        (for [[doc index] (partition 2 (interleave (:docs app) (range))) ]
                           (om/build result-item doc
-                                    {:opts {:highlighting (get-in app [:highlighting (keyword (:id doc))])}
+                                    {:react-key index
+                                     :opts 
+                                     {:highlighting (get-in app [:highlighting (keyword (:id doc))])}
                                      :init-state {:current (= 1 (:nof-docs app))}})))
                  (om/build frontpage-client.pagination/pagination app pagination-opts))))))
 
-;; Statistics component
-;; Answer facts about listed components etc.
-(defn statistics [app owner]
-  (reify
-    om/IRender
-    (render [this]
-      (dom/table nil
-       (dom/thead nil
-        (dom/tr nil
-         (dom/td nil "mode")
-         (dom/td nil "count"))
-        (apply dom/tbody nil
-               (for [mode [:listed :selected :edited]]
-                 (dom/tr nil
-                         (dom/td nil (name mode))
-                         (dom/td nil (statistics/count (om/get-shared owner :db) mode))))))))))
-
-(defn doc-ids [docs]
-  "Answer a set of all the ids in docs"
-  (set (map (fn [doc] (:id doc)) docs)))
-
-(defn tx-listen [conn tx-data root-cursor]
-  (let [path (:path tx-data)
-        new-docs (get-in tx-data [:new-state :docs])
-        old-docs (get-in tx-data [:old-state :docs])
-        old-doc-ids (doc-ids old-docs)
-        new-doc-ids (doc-ids new-docs)]
-    (when-not (= old-doc-ids new-doc-ids)
-      (doseq [doc new-docs]
-        (statistics/add conn doc :listed)))
-    ;; TODO: use clojure.core/match ?
-    (when (= (first path) :docs)
-      (let [new-doc (get new-docs (second path))
-            old-doc (get old-docs (second path))]
-        (statistics/add conn new-doc :selected)
-        (when (and old-doc (not= old-doc new-doc))
-          (statistics/add conn new-doc :edited))))))
-      
 
 ;; select handler for the facet list.
 (defn on-select [app owner]
@@ -168,13 +134,14 @@
   (search app owner))
 
 (defn root [state owner opts]
+  "Setup the root react component"
    (reify
      om/IRender
-     (render [this]
+     (render [_]
        (dom/div nil
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-2 columns"} 
-                                  (om/build statistics state))
+                                  (om/build statistics/statistics state))
                          (dom/div #js {:className "large-8 columns"}
                                   (dom/h1 nil "FrontPage")))
                 (dom/div #js {:className "row"}
@@ -188,7 +155,7 @@
                          (dom/div #js {:className "large-2 columns"})
                          (dom/div #js {:className "large-8 columns"}))))
      om/IWillMount
-     (will-mount [this]
+     (will-mount [_]
        (let [q (:q opts)]
          (when-not (clojure.string/blank? q)
            (om/update! state :q q) ; not directly visible with (:q state) ?
@@ -199,6 +166,8 @@
 (def app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
                 :facet-fields [] :selected-facet-values {}})
 
+;; Define a route which runs a search based on the "q" request parameter.
+;; Creates the global om component and shared state when invoked.
 (secretary/defroute "*" [query-params]
   (let [q (:q query-params)
         conn (frontpage-client.statistics/create-conn)]
@@ -206,7 +175,7 @@
              {:opts {:q q}
               :target (. js/document (getElementById "app"))
               :shared {:search-chan (chan) :db conn}
-              :tx-listen (partial tx-listen conn)})))
+              :tx-listen (partial statistics/tx-listen conn)})))
 
 (secretary/dispatch! (.-URL js/document))
 

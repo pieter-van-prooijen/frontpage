@@ -1,7 +1,6 @@
 (ns frontpage-client.document
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [frontpage-client.statistics :as statistics]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))

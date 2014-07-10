@@ -7,7 +7,8 @@
             [flux.http]
             [flux.core :as flux]
             [clj-time.core]
-            [clj-time.format]))
+            [clj-time.format])
+  (:import [org.jsoup Jsoup]))
 
 (def post-formatter (clj-time.format/formatter "yyyy-MM-dd' 'HH:mm:ss"))
 (def solr-formatter (clj-time.format/formatter "yyyy-MM-dd'T'HH:mm:ss'Z'"))
@@ -19,6 +20,10 @@
         local (clj-time.core/from-time-zone date post-tz)]
     (clj-time.format/unparse solr-formatter local)))
 
+ ;; TODO move this to solr text extraction using Tikka, so it also works when editing new documents
+(defn extract-html-text [s]
+  "Extract text from the html formatted string s"
+  (.text (Jsoup/parse s )))
 
 (defn extract-post 
   "Answer a post map for a specified row in the xml"
@@ -27,10 +32,12 @@
                         [key (zip-xml/text (zip-xml/xml1-> row-loc (zip-xml/tag= key)))]))
         ;; replace empty values designated by NULL, trim the value.
         filtered (into {} (map (fn [[key val]] [key (if (= val "NULL") "" (clojure.string/trim val))]) post))
-        categories (remove #(clojure.string/blank? %) (clojure.string/split (:categories filtered) #",+"))]
+        categories (remove clojure.string/blank? (clojure.string/split (:categories filtered) #",+"))
+        body (str (:body post) (:body_more filtered))]
         (-> filtered
             (assoc :created_on (convert-date (:created_on filtered)))
-            (assoc :body (str (:body post) (:body_more filtered)))
+            (assoc :body body)
+            (assoc :extracted_body_text (extract-html-text body))
             (assoc :categories (if (seq categories) categories ["uncategorized"]))
             (assoc :id (:permalink filtered)))))
 
@@ -67,15 +74,13 @@
   ([coll]
      "Answer a lazy seq with ranges of same value items in coll collapsed into one.
       (collapse-same [1 1 2 3 3 1 1]) => (1 2 3 1)"
-     (collapse-same coll (first coll)))
-  ([coll v]
      (if (seq coll)
-       (lazy-seq
-        (if (= (first coll) v)
-          (collapse-same (rest coll) v)
-          (cons v (collapse-same coll))))
-       (if (nil? v)
-         (empty coll)
-         (conj (empty coll) v)))))
+       (collapse-same coll (first coll))
+       (empty coll)))
+  ([coll v]
+     (lazy-seq
+      (if (and (seq coll) (= (first coll) v))
+        (collapse-same (rest coll) v)
+        (cons v (collapse-same coll))))))
 
 

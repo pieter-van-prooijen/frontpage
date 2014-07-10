@@ -19,7 +19,7 @@ The project contains the following modules:
 
 # Requirements
 
-Requirements: Oracle / OpenJdk Jdk 1.7, Leiningen 2, Solr 4.7+, Apache2 and
+Requirements: Oracle / OpenJdk Jdk 1.7, Leiningen 2, Solr 4.7+ and
 the Tidy XML cleaner.
 
 # Installation
@@ -38,6 +38,8 @@ Install [solr 4.7 or higher](http://lucene.apache.org/solr) and adjust the
 _run-solr.sh_ script in the toplevel directory of the project to your installation directory.
 
 Start solr with the run_solr.sh script, it will start a Jetty server at port 8983.
+To start with a clean collection (for example, when using a new schema), remove all files under the
+solr/core0/data directory
 
 ## Importing Data
 Goto the _solr-import_ sub project and run (optionally removing all
@@ -50,29 +52,8 @@ $ lein run <path-to-bbpostdump-tidy.xml
 This can take a while (10 minutes with an SSD), see the output of the _run-solr.sh` script to check
 if documents are added correctly.
 
-Inspect the resulting frontpage collection using the Solr admin interface
+Inspect the resulting collection/core (named "frontpage") using the Solr admin interface
 at [http://localhost:8983/solr]
-
-## Apache
-Install Apache and change the frontpage vhost defined in the
-_apache-vhost-example.conf_ to reflect the installation directory of the
-frontpage project (in the DocumentRoot directive).
-
-This vhost also contains a proxy to the Solr server,
-to allow POST's to Solr without running into the "Same Origin" policy of
-the browser for Javascript requests.
-
-In Debian / Ubuntu, this would require the following steps (as root):
-```
- # cp apache-vhost-example.conf /etc/apache2/sites-available/frontpage.conf
- # a2ensite frontpage
- # service apache2 reload
-```
-
-Add the following line to your /etc/hosts file
-```
-127.0.0.1 frontpage.localdomain
-```
 
 # Compiling Clojurescript
 To compile the webpage app and making changes to the code, go to the frontpage-client directory and start:
@@ -84,7 +65,15 @@ $ lein cljsbuild once
 
 # Running
 
-Open the webapp at: http://frontpage.localdomain and explore:
+Start the jetty server and solr reverse proxy using:
+```
+$ lein servlet run
+```
+This will open the webapp at http://localhost:3000 in a new browser window
+and makes the solr server available at http://localhost:3000/solr, allowing
+the javascript to query and post to solr directly.
+
+Features available in the application:
 
 * Type a query in lucene syntax for a full-text search
 * Use the _q_ request parameter to specify a query via the url.
@@ -101,9 +90,14 @@ If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
 cider-jack-in') and execute
 `(require 'init-repl)`. After that, open the  URL
 http://localhost:9000/index.hml in the browser. (The Cljs repl doesn't work with the
-frontpage.localdomain url because of the urls it generates)
+http://localhost:3000 location because of the urls it generates)
 
 Use the `lein cljsbuild auto` command to automatically compile modified
 Clojurescript files.
 
+# Todo
+Use solr cell to extract the html content from the body of a post (see
+https://cwiki.apache.org/confluence/display/solr/Uploading+Data+with+Solr+Cell+using+Apache+Tika).
+The import ses jsoup to extract the text, but this is not usable when
+editing documents.
 

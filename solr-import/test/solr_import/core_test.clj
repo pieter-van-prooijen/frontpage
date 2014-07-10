@@ -9,4 +9,7 @@
   (testing "numbers and nils"
     (is (= '(1 2 3) (collapse-same '(1 2 2 3 3 3))))
     (is (= '(1 2 3) (collapse-same '(1 2 2 3))))
-    (is (= '(1 2 nil 3) (collapse-same '(1 2 2 nil nil 3 3 3))))))
+    (is (= '(1 2 nil 3) (collapse-same '(1 2 2 nil nil 3 3 3))))
+    (is (= '(1 2 nil) (collapse-same '(1 2 2 nil))))
+    (is (= '(nil) (collapse-same '(nil))))))
+
