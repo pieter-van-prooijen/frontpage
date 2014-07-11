@@ -6,11 +6,16 @@
 .metadata {
     margin-top: 1em;
     margin-bottom: 1em;
+    color: #999;
+    font-style: italic;
 }
 
-.metadata span {
-    margin-left: 1em;
-    font-style: italic;
+.metadata a {
+    margin-right: 1em;
+}
+
+.metadata a.category {
+    margin-right: inherit;
 }
 
 .summary {

@@ -3,6 +3,9 @@
             [om.dom :as dom :include-macros true]))
 
 ;; Facet list component
+;; Terms: 
+;; "facet" denotes a type of attribute of a document, like author or category
+;; "facet value" is a particular instance of that facet, like "John Smith"
 
 (defn toggle-facet-value [values value]
   "Toggle the value in the set of selected values"

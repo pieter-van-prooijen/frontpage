@@ -49,7 +49,7 @@
     om/IRender
     (render [this]
       (apply dom/ul #js {:className "pagination"}
-             (let [nof-pages (inc (int (/ (:nof-docs app) (:page-size app))))
+             (let [nof-pages (js/Math.ceil (/ (:nof-docs app) (:page-size app)))
                    page (:page app)
                    page-changed-fn (:page-changed-fn opts)
                    page-li-part (partial page-li app owner page-changed-fn)] ; fix the first three args to page-li

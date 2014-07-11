@@ -83,6 +83,10 @@
 (defn row-doc-changed [row-doc new-doc]
   (om/update! row-doc new-doc))
 
+(defn metadata-selected [app owner facet value]
+  (om/update (:selected-facet-values app) [{:facet value}])
+  (search app owner))
+
 (defn result-item [doc owner {:keys [highlighting]}]
   (reify
     ;; When seeing a new document, revert to the initial non-current / non editing state
@@ -101,7 +105,8 @@
                               (:title doc)))]
               (if (om/get-state owner :current)
                 [(om/build frontpage-client.document/current-doc doc
-                           {:opts {:doc-changed-fn (partial row-doc-changed doc)}})]
+                           {:opts {:doc-changed-fn (partial row-doc-changed doc)
+                                   :metadata-selected-fn metadata-selected}})]
                 [(when highlighting 
                    (frontpage-client.util/html-dangerously dom/div {:className "summary"} (first (:text highlighting))))
                  (frontpage-client.document/metadata doc)]))))))

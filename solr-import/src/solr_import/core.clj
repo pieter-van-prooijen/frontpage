@@ -73,7 +73,8 @@
 (defn collapse-same
   ([coll]
      "Answer a lazy seq with ranges of same value items in coll collapsed into one.
-      (collapse-same [1 1 2 3 3 1 1]) => (1 2 3 1)"
+      (collapse-same [1 1 2 3 3 1 1]) => (1 2 3 1).
+      Allows nil value items in the seq."
      (if (seq coll)
        (collapse-same coll (first coll))
        (empty coll)))

@@ -1,5 +1,6 @@
 (ns frontpage-client.document
-  (:require [om.core :as om :include-macros true]
+  (:require [clojure.string]
+            [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]])
@@ -9,13 +10,16 @@
 
 (enable-console-print!)
 
-(defn metadata [doc]
-  (dom/div #js {:className "metadata"}
-           (dom/span nil (:created_on doc))
-           (dom/span nil (:author doc))
-           (dom/span nil (clojure.string/join " - "(:categories doc)))))
+(defn metadata [doc selected-fn]
+  (apply dom/div #js {:className "metadata"}
+         (dom/a nil (frontpage-client.util/printable-date (:created_on doc)))
+         (dom/a #js {:onClick (fn [_] (selected-fn :author (:author doc)))} (:author doc))
+         (interpose
+          (dom/span nil " - ")
+          (for [category (:categories doc)]
+            (dom/a #js {:className "category" :onClick (fn [] (selected-fn :categories category))} category)))))
 
-(defn show-doc [doc owner {:keys [toggle-editing-fn]}]
+(defn show-doc [doc owner {:keys [toggle-editing-fn metadata-selected-fn]}]
   (reify
     om/IRender
     (render [_]
@@ -24,7 +28,7 @@
                  (dom/div #js {:className "large-12 columns"}
                           (dom/h2 nil (:title doc))
                           (frontpage-client.util/html-dangerously dom/div nil (:body doc))
-                          (metadata doc)
+                          (metadata doc metadata-selected-fn)
                           (dom/div #js {:className "row"}
                                    (dom/div #js {:className "large-12 columns"}
                                             (dom/a #js {:className "radius button inline left"
@@ -80,7 +84,7 @@
                          (dom/a #js {:className "button" :onClick toggle-editing-fn} "cancel")))))))
 
 
-(defn current-doc [doc owner {:keys [doc-changed-fn]}]
+(defn current-doc [doc owner {:keys [doc-changed-fn metadata-selected-fn]}]
   "Highlight the current document"
   (reify
     om/IInitState
@@ -91,7 +95,8 @@
       ;; Use owner (the react component) and not "this" (reified protocol instance) with om/*-state functions.
       (let [opts {:opts {:toggle-editing-fn (fn [_] 
                                               (om/update-state! owner :editing (fn [old] (not old))))
-                         :doc-changed-fn doc-changed-fn}}]
+                         :doc-changed-fn doc-changed-fn
+                         :metadata-selected-fn metadata-selected-fn}}]
         (dom/div #js {:className "current-doc"}
                  (if editing
                    (om/build edit-doc doc opts)
