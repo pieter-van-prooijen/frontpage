@@ -57,19 +57,18 @@
   (reify
     om/IRender
     (render [_]
-      (dom/div #js {:className "row"}
+      (dom/form #js {:className "row"}
                (dom/div #js {:className "large-1 columns"}
                         ( dom/label #js {:className "right inline" :htmlFor "query"} "query:"))
                (dom/div #js {:className "large-4 columns"}
                         (dom/input #js {:type "text" :placeholder (if-let [q (:q app)] q "query")
-                                        :name "query" :ref "query" :id "query"
+                                        :name "q" :ref "query" :id "query"
                                         :onKeyPress (fn [e] (when (= "Enter" (.-key e))
                                                               (search-from-box app owner)))}))
-               (dom/div #js {:className "large-1 columns"}
+               (dom/div #js {:className "large-1 columns end"}
                         (dom/a #js {:className "tiny radius button inline left"
                                     :onClick (fn [] (search-from-box app owner))}
-                               "Search"))
-               (dom/div #js {:className "large-4 columns"})))))
+                               "Search"))))))
 
 
 (defn toggle-current [owner doc]
@@ -104,8 +103,6 @@
                 [(om/build frontpage-client.document/current-doc doc
                            {:opts {:doc-changed-fn (partial row-doc-changed doc)}})]
                 [(when highlighting 
-                   ;; FIXME: highlighting may contain malformed html which will cause invariant errors
-                   ;; in React.
                    (frontpage-client.util/html-dangerously dom/div {:className "summary"} (first (:text highlighting))))
                  (frontpage-client.document/metadata doc)]))))))
 
@@ -116,16 +113,16 @@
       (let [pagination-opts {:opts {:page-changed-fn (fn [page] 
                                                        (search app owner))}}]
         (dom/div #js {:className "row"}
-                 (dom/h2 nil (str (:nof-docs app) " " "Results"))
-                 (om/build frontpage-client.pagination/pagination app pagination-opts)
-                 (apply dom/div #js {:className "row"}
-                        (for [[doc index] (partition 2 (interleave (:docs app) (range))) ]
-                          (om/build result-item doc
-                                    {:react-key index
-                                     :opts 
-                                     {:highlighting (get-in app [:highlighting (keyword (:id doc))])}
-                                     :init-state {:current (= 1 (:nof-docs app))}})))
-                 (om/build frontpage-client.pagination/pagination app pagination-opts))))))
+                 (dom/div #js {:className "large-12 columns"}
+                          (dom/h2 nil (str (:nof-docs app) " " "Results"))
+                          (om/build frontpage-client.pagination/pagination app pagination-opts)
+                          (dom/div #js {:className "row"}
+                                   (apply dom/div #js {:className "large-12 columns"}
+                                          (for [doc (:docs app)]
+                                            (om/build result-item doc
+                                                      {:opts  {:highlighting (get-in app [:highlighting (keyword (:id doc))])}
+                                                       :init-state {:current (= 1 (:nof-docs app))}}))))
+                          (om/build frontpage-client.pagination/pagination app pagination-opts)))))))
 
 
 ;; select handler for the facet list.
@@ -140,20 +137,20 @@
      (render [_]
        (dom/div nil
                 (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-2 columns"} 
+                         (dom/div #js {:className "large-3 columns hide"} ; not shown
                                   (om/build statistics/statistics state))
-                         (dom/div #js {:className "large-8 columns"}
+                         (dom/div #js {:className "large-9 columns"}
                                   (dom/h1 nil "FrontPage")))
                 (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-2 columns"} 
+                         (dom/div #js {:className "large-3 columns"} 
                                   (om/build frontpage-client.facets/facets-list state
                                             {:opts {:on-select-fn on-select}}))
-                         (dom/div #js {:className "large-8 columns"}
+                         (dom/div #js {:className "large-9 columns"}
                                   (om/build search-box state)
                                   (om/build result-list state)))
                 (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-2 columns"})
-                         (dom/div #js {:className "large-8 columns"}))))
+                         (dom/div #js {:className "large-3 columns"})
+                         (dom/div #js {:className "large-9 columns"}))))
      om/IWillMount
      (will-mount [_]
        (let [q (:q opts)]

@@ -47,7 +47,7 @@
                 :fq (clj->js (create-field-queries fq))
                 :wt "json"
                 :fl (clj->js (map #(name %) search-doc-fields)) 
-                :hl true :hl.fl "text"
+                :hl true :hl.fl "text" :hl.fragsize 300
                 :start (* page page-size) :rows page-size
                 :facet true :facet.field #js ["author" "categories"] :facet.mincount 1}]
     (xhrio/send (create-uri solr-select-url params) cb)))
