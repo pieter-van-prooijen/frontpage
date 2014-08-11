@@ -1,5 +1,6 @@
 (ns frontpage-client.solr
-  (:require [goog.json :as json]
+  (:require [clojure.string]
+            [goog.json :as json]
             [goog.net.XhrIo :as xhrio]
             [goog.Uri]
             [cljs.core.async :refer [<! >! chan put!]])
@@ -8,11 +9,35 @@
 (enable-console-print!)
 
 ;; Retrieve/store frontpage document using the solr json api.
+;; Also defines the document fields and facets of the boingboing blog posts.
 
 ;; "json.wrf" as callback parameter name enables the solr jsonp response.
 (def solr-collection-url "http://localhost:3000/solr/frontpage")
 (def solr-select-url (str solr-collection-url "/select"))
 (def solr-update-url (str solr-collection-url "/update"))
+
+;; Generate a solr query for the specified field/facet definition and value set
+;; Dispatches on the type of field and gap (e.g. range, date-range etc.
+(defmulti create-query (fn [facet values] 
+                         (when-let [gap (:gap facet)]
+                           (condp get (:gap facet)
+                             #{"+1YEAR" "+1MONTH" "+1WEEK" "+1DAY"} :date-range
+                             :integer-range))))
+
+;; Fields without a gap have a simple query which AND-s all the values 
+(defmethod create-query :default [facet values]
+  (for [value (seq values)]
+    (str (:name facet) ":\"" value "\"")))
+
+;; For date ranges, just concat the gap as an end value
+(defmethod create-query :date-range [facet values]
+  (let [start (first values)]
+    (str (:name facet) ":" "[\"" start "\" TO \"" start (:gap facet) "\"]")))
+
+(defmethod create-query :integer-range [facet values]
+  (let [start (.Integer/parseInt (first values))
+        gap (.Integer/parseInt (:gap facet))]
+    (str (:name facet) ":" "[\"" start "\" TO \"" (+ start gap) "\"]")))
 
 (defn- create-uri [base params]
  "Create a goog.Uri instance with the specified url, path and parameter map"
@@ -27,29 +52,35 @@
         result (js->clj result-js :keywordize-keys true)]
     (go (>! c result))))
 
-;; m is a map of keyword-naming-field => value or values
+;; m is a map of field-name => facet definition
 (defn create-field-queries [m]
   (->> m
-      (map (fn [[field values]]
-                     (for [value (if (coll? values) (seq values) [values])]
-                       (str (name field) ":\"" value "\""))))
-      (apply concat)))
+       (map (fn [[_ {:keys [selected-values] :as facet-definition}]]
+              (when-not (empty? selected-values)
+                (create-query facet-definition selected-values))))
+       (remove nil?)))
 
 ;; Frontpage document fields, with a subset to answer in a search query.
 (def all-doc-fields [:id :title :created_on :author :categories :body])
 (def search-doc-fields (remove #(= % :body) all-doc-fields))
 
-(defn search [q fq page page-size c]
+;; Facet fields and parent / child relations
+(def facet-range-doc-fields [:created_on])
+(def facet-field-doc-fields [:author :categories :created_on_year])
+(def facet-field-parent-child {:created_on_year :created_on_month, :created_on_month :created_on_day})
+
+(defn search [q fq page page-size facet-fields c]
   "Search for q and put the result as a nested map on the supplied channel.
-   fq is a map of field -> value queries (which are and-ed) to search for."
+   fq is a map of field -> facet-defs queries (which are and-ed) to search for."
   (let [cb (partial select-cb c)
         params {:q q
                 :fq (clj->js (create-field-queries fq))
                 :wt "json"
-                :fl (clj->js (map #(name %) search-doc-fields)) 
+                :fl (clj->js (map name search-doc-fields)) 
                 :hl true :hl.fl "text" :hl.fragsize 300
                 :start (* page page-size) :rows page-size
-                :facet true :facet.field #js ["author" "categories"] :facet.mincount 1}]
+                :facet true
+                :facet.field (clj->js facet-fields) :facet.mincount 1}]
     (xhrio/send (create-uri solr-select-url params) cb)))
 
 (defn get-doc [id c]

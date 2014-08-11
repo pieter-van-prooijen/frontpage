@@ -11,7 +11,7 @@
             [clojure.string]
             [datascript :as d]
             [secretary.core :as secretary :include-macros true])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (enable-console-print!)
 
@@ -24,27 +24,48 @@
            retrieved-doc (first (get-in result [:response :docs]))]
        (om/update! doc retrieved-doc)))))
 
+;; Determine the current facet-fields to use in the query, using the parent /child hierarchy.
+(defn facet-fields [facets]
+  (->> (for [{:keys [selected-values child-key]} (vals facets)]
+         (when-not (empty? selected-values)  ;; TODO remove facet from selected list when values are empty ?
+           child-key))
+       (remove nil?)
+       (concat solr/facet-field-doc-fields)))
+
+(defn- update-facet [facet-field counts gap facet]
+  "Update the specified facet map with the new fields."
+  (assoc facet :name (name facet-field) :counts counts :gap gap
+         :child-key (facet-field solr/facet-field-parent-child)))
+
+(defn update-facets-from-result [app search-result]
+  "Put the facet related aspect of search-result in the global app state"
+  (let [facet-fields (get-in search-result [:facet_counts :facet_fields])
+        facet-ranges (get-in search-result [:facet_counts :facet_ranges])]
+    (doseq [[facet-field counts] facet-fields]
+      (om/transact! app [:facets facet-field] (partial update-facet facet-field counts nil)))
+    (doseq [[facet-field {:keys [counts gap]}] facet-ranges] 
+      (om/transact! app [:facets facet-field] (partial update-facet facet-field counts gap)))))
+
 (defn search
-  ([q page page-size selected-facet-values app owner]
+  ([q page page-size facets app owner]
      "Search with the current query, paging etc. in solr, update the state with the results"
-     (let [search-chan (om/get-shared owner :search-chan)]
-       (solr/search q selected-facet-values page page-size search-chan)
+     (let [search-chan (om/get-shared owner :search-chan)
+           facet-fields (facet-fields facets)]
+       (solr/search q facets page page-size facet-fields search-chan)
        (go
         (let [result (<! search-chan)
               docs (get-in result [:response :docs])
               nof-docs (get-in result [:response :numFound])
-              highlighting (get-in result [:highlighting])
-              facet-fields (get-in result [:facet_counts :facet_fields])]
+              highlighting (get-in result [:highlighting])]
           (om/update! app :docs docs)
           (om/update! app :highlighting highlighting)
           (om/update! app :nof-docs nof-docs)
-          (om/update! app :facet-fields facet-fields)
+          (update-facets-from-result app result)
           (om/update! app :current nil)))))
   ([app owner]
      "Search with retrieving the parameters from the app state, runs async."
-       (let [{:keys [q page page-size selected-facet-values]} @app]
-         (search q page page-size selected-facet-values app owner))))
-
+       (let [{:keys [q page page-size facets]} @app]
+         (search q page page-size facets app owner))))
 
 (defn search-from-box [app owner]
   (let [q (frontpage-client.util/input-value owner "query")]
@@ -83,10 +104,6 @@
 (defn row-doc-changed [row-doc new-doc]
   (om/update! row-doc new-doc))
 
-(defn metadata-selected [app owner facet value]
-  (om/update (:selected-facet-values app) [{:facet value}])
-  (search app owner))
-
 (defn result-item [doc owner {:keys [highlighting]}]
   (reify
     ;; When seeing a new document, revert to the initial non-current / non editing state
@@ -105,11 +122,10 @@
                               (:title doc)))]
               (if (om/get-state owner :current)
                 [(om/build frontpage-client.document/current-doc doc
-                           {:opts {:doc-changed-fn (partial row-doc-changed doc)
-                                   :metadata-selected-fn metadata-selected}})]
+                           {:opts {:doc-changed-fn (partial row-doc-changed doc)}})]
                 [(when highlighting 
                    (frontpage-client.util/html-dangerously dom/div {:className "summary"} (first (:text highlighting))))
-                 (frontpage-client.document/metadata doc)]))))))
+                 (om/build frontpage-client.document/metadata doc)]))))))
 
 (defn result-list [app owner]
   (reify
@@ -124,16 +140,11 @@
                           (dom/div #js {:className "row"}
                                    (apply dom/div #js {:className "large-12 columns"}
                                           (for [doc (:docs app)]
-                                            (om/build result-item doc
-                                                      {:opts  {:highlighting (get-in app [:highlighting (keyword (:id doc))])}
-                                                       :init-state {:current (= 1 (:nof-docs app))}}))))
+                                            (let [highlighting (get-in app [:highlighting (keyword (:id doc))])]
+                                                 (om/build result-item doc
+                                                           {:opts  {:highlighting highlighting}
+                                                            :init-state {:current (= 1 (:nof-docs app))}})))))
                           (om/build frontpage-client.pagination/pagination app pagination-opts)))))))
-
-
-;; select handler for the facet list.
-(defn on-select [app owner]
-  (om/update! app :page 0) ; reset the paging.
-  (search app owner))
 
 (defn root [state owner opts]
   "Setup the root react component"
@@ -145,11 +156,10 @@
                          (dom/div #js {:className "large-3 columns hide"} ; not shown
                                   (om/build statistics/statistics state))
                          (dom/div #js {:className "large-9 columns"}
-                                  (dom/h1 nil "FrontPage")))
+                                  (dom/h1 nil "Frontpage")))
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-3 columns"} 
-                                  (om/build frontpage-client.facets/facets-list state
-                                            {:opts {:on-select-fn on-select}}))
+                                  (om/build frontpage-client.facets/facets-list (:facets state)))
                          (dom/div #js {:className "large-9 columns"}
                                   (om/build search-box state)
                                   (om/build result-list state)))
@@ -162,11 +172,12 @@
          (when-not (clojure.string/blank? q)
            (om/update! state :q q) ; not directly visible with (:q state) ?
            (let [{:keys [page page-size selected-facet-values]} state]
-             (search q page page-size selected-facet-values state owner)))))))
+             (search q page page-size selected-facet-values state owner))))
+       (frontpage-client.facets/install-facet-select-loop state owner))))
 
-
+ 
 (def app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
-                :facet-fields [] :selected-facet-values {}})
+                :facets {}})
 
 ;; Define a route which runs a search based on the "q" request parameter.
 ;; Creates the global om component and shared state when invoked.
@@ -176,7 +187,9 @@
     (om/root root app-state 
              {:opts {:q q}
               :target (. js/document (getElementById "app"))
-              :shared {:search-chan (chan) :db conn}
+              :shared {:search-chan (chan) 
+                       :facet-select-chan (chan)
+                       :db conn}
               :tx-listen (partial statistics/tx-listen conn)})))
 
 (secretary/dispatch! (.-URL js/document))

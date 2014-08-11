@@ -2,6 +2,7 @@
   (:require [clojure.string]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
+            [frontpage-client.facets :as facets]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
@@ -10,16 +11,28 @@
 
 (enable-console-print!)
 
-(defn metadata [doc selected-fn]
-  (apply dom/div #js {:className "metadata"}
-         (dom/a nil (frontpage-client.util/printable-date (:created_on doc)))
-         (dom/a #js {:onClick (fn [_] (selected-fn :author (:author doc)))} (:author doc))
-         (interpose
-          (dom/span nil " - ")
-          (for [category (:categories doc)]
-            (dom/a #js {:className "category" :onClick (fn [] (selected-fn :categories category))} category)))))
+(defn metadata [doc owner]
+  (reify
+    om/IRender
+    (render [_]
+      (let [author (:author doc)
+            created-on (js/Date. (:created_on doc))]
+        (apply dom/div #js {:className "metadata"}
+               (dom/a #js {:onClick (fn [_]
+                                      (facets/select-facet owner (name :created_on) created-on))}
+                      (frontpage-client.util/printable-date created-on))
+               (dom/a #js {:onClick (fn [_]
+                                      (facets/select-facet owner (name :author) author))} author)
+               (butlast
+                (interleave       ; not interpose, can't reuse components.
+                 (for [category (:categories doc)]
+                   (dom/a #js {:className "category"
+                               :onClick (fn [_]
+                                          (facets/select-facet owner (name :categories) category))}
+                          category))
+                 (repeatedly #(dom/span nil " - ")))))))))
 
-(defn show-doc [doc owner {:keys [toggle-editing-fn metadata-selected-fn]}]
+(defn show-doc [doc owner {:keys [toggle-editing-fn]}]
   (reify
     om/IRender
     (render [_]
@@ -28,7 +41,7 @@
                  (dom/div #js {:className "large-12 columns"}
                           (dom/h2 nil (:title doc))
                           (frontpage-client.util/html-dangerously dom/div nil (:body doc))
-                          (metadata doc metadata-selected-fn)
+                          (om/build metadata doc)
                           (dom/div #js {:className "row"}
                                    (dom/div #js {:className "large-12 columns"}
                                             (dom/a #js {:className "radius button inline left"
@@ -84,7 +97,7 @@
                          (dom/a #js {:className "button" :onClick toggle-editing-fn} "cancel")))))))
 
 
-(defn current-doc [doc owner {:keys [doc-changed-fn metadata-selected-fn]}]
+(defn current-doc [doc owner {:keys [doc-changed-fn]}]
   "Highlight the current document"
   (reify
     om/IInitState
@@ -95,8 +108,7 @@
       ;; Use owner (the react component) and not "this" (reified protocol instance) with om/*-state functions.
       (let [opts {:opts {:toggle-editing-fn (fn [_] 
                                               (om/update-state! owner :editing (fn [old] (not old))))
-                         :doc-changed-fn doc-changed-fn
-                         :metadata-selected-fn metadata-selected-fn}}]
+                         :doc-changed-fn doc-changed-fn}}]
         (dom/div #js {:className "current-doc"}
                  (if editing
                    (om/build edit-doc doc opts)

@@ -6,19 +6,22 @@
             [clojure.string]
             [flux.http]
             [flux.core :as flux]
-            [clj-time.core]
+            [clj-time.core :as t]
             [clj-time.format])
   (:import [org.jsoup Jsoup]))
 
 (def post-formatter (clj-time.format/formatter "yyyy-MM-dd' 'HH:mm:ss"))
 (def solr-formatter (clj-time.format/formatter "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-(def post-tz (clj-time.core/time-zone-for-offset -7))
+(def post-tz (clj-time.core/time-zone-for-offset -7)) ; pacific daylight savings time.
 
-(defn convert-date [s]
-  "Convert date from the xml format to solr, assumes posts are in pacific daylight savings time"
-  (let [date (clj-time.format/parse post-formatter s)
-        local (clj-time.core/from-time-zone date post-tz)]
-    (clj-time.format/unparse solr-formatter local)))
+(defn get-date [s]
+  "Answer a date from the xml format, in the UTC timezone"
+  (let [date (clj-time.format/parse post-formatter s)]
+    (clj-time.core/from-time-zone date post-tz)))
+
+(defn to-solr [d]
+  "Convert a dat in xml format to solr utc format."
+  (clj-time.format/unparse solr-formatter d))
 
  ;; TODO move this to solr text extraction using Tikka, so it also works when editing new documents
 (defn extract-html-text [s]
@@ -33,9 +36,13 @@
         ;; replace empty values designated by NULL, trim the value.
         filtered (into {} (map (fn [[key val]] [key (if (= val "NULL") "" (clojure.string/trim val))]) post))
         categories (remove clojure.string/blank? (clojure.string/split (:categories filtered) #",+"))
-        body (str (:body post) (:body_more filtered))]
+        body (str (:body post) (:body_more filtered))
+        created-on (get-date (:created_on filtered))]
         (-> filtered
-            (assoc :created_on (convert-date (:created_on filtered)))
+            (assoc :created_on (to-solr created-on))
+            (assoc :created_on_year (t/year created-on))
+            (assoc :created_on_month (t/month created-on))
+            (assoc :created_on_day (t/day created-on))
             (assoc :body body)
             (assoc :extracted_body_text (extract-html-text body))
             (assoc :categories (if (seq categories) categories ["uncategorized"]))

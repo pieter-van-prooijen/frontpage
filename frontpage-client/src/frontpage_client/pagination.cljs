@@ -31,7 +31,7 @@
         end-page-nums (range (- nof-pages 2) nof-pages)
 
         ;; Don't show the ellipsis if the middle page range is adjacent to or overlaps the start / end ranges
-        ellipsis (apply disj #{2 (- nof-pages 3)} middle-page-nums)
+        ellipsis (apply disj #{2 (- nof-pages 3)} (concat start-page-nums middle-page-nums end-page-nums))
 
         numbers-seq (distinct (filter #(and (>= % 0) (< % nof-pages))
                                       (concat start-page-nums middle-page-nums end-page-nums ellipsis)))]

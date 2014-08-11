@@ -26,8 +26,12 @@
     color: red;
 }
 
-.side-nav li.active a span {
+.side-nav li.active > a > span {
     font-weight: bold;
+}
+
+.side-nav li.active > li {
+    padding-left: 1.0em;
 }
 
 .current-doc {
@@ -41,4 +45,29 @@
 img[align=left] {
     padding-right: 1em;
     padding-bottom: 1em;
+}
+
+.facet-page.button {
+    margin-bottom: 0px;
+}
+
+/* Style buttons with an icon in them */
+.button .icon  {
+    fill: white;
+}
+
+.button.icon.tiny {
+    padding: 0.0625rem 0.625rem;
+}
+
+.button.icon.tiny .icon {
+    width: 0.625rem;
+    height: 0.625rem;
+}
+
+/* Foundation bug fixes */
+
+/* Buttons have their own display: attribute overriding the one set by .hide */
+a.button.hide {
+    display: none;
 }

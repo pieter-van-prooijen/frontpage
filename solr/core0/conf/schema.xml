@@ -22,6 +22,7 @@ limitations under the License.
     <fieldtype name="string_case_insensitive"  class="solr.StrField" sortMissingLast="true" omitNorms="true">
       <filter class="solr.LowerCaseFilterFactory"/>
     </fieldtype>
+    <fieldType name="int" class="solr.TrieIntField" precisionStep="0" positionIncrementGap="0"/>
     <fieldType name="long" class="solr.TrieLongField" precisionStep="0" positionIncrementGap="0"/>
     <fieldType name="text_en" class="solr.TextField">
       <analyzer>
@@ -43,7 +44,16 @@ limitations under the License.
     <field name="author"    type="string"   indexed="true"  stored="true"  multiValued="false" /> 
     <field name="body"      type="string"   indexed="false" stored="true"  multiValued="false" /> 
     <field name="extracted_body_text"      type="string"   indexed="false"  stored="false"  multiValued="false" /> 
-    <field name="created_on" type="tdate"   indexed="true"  stored="true"  multiValued="false" required="true"/> 
+
+    <field name="created_on" type="tdate"   indexed="true"  stored="true"
+           multiValued="false" required="true"/> 
+
+    <!-- faceting fields -->
+    <field name="created_on_year" type="int"   indexed="true"  stored="false"  multiValued="false" required="true"/> 
+    <field name="created_on_month" type="int"  indexed="true"  stored="false"  multiValued="false" required="true"/> 
+    <field name="created_on_day" type="int"    indexed="true"  stored="false"  multiValued="false" required="true"/> 
+
+
     <field name="categories" type="string_case_insensitive"   indexed="true"  stored="true"
            multiValued="true"  required="true"/> 
     <field name="_version_" type="long"     indexed="true"  stored="true"/>

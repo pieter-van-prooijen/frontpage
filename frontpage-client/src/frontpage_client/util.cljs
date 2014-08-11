@@ -7,17 +7,20 @@
   "Show raw html-text in the specified dom function, using the supplied attribute map"
   (dom-fn (clj->js (merge attr {:dangerouslySetInnerHTML #js {:__html html-text}}))))
 
+(defn icon [name]
+  "Show the named icon from the open iconic font set."
+  (html-dangerously dom/svg {:viewBox "0 0 8 8" :className "icon"}
+                    (str "<use xlink:href=\"/open-iconic.svg#" name "\"" " class=\"" name "\"></use>")))
+
 (defn input-value [owner ref]
   (.-value (om/get-node owner ref)))
 
-(defn printable-date [s]
-  "Converts an iso 8601 date into something more readable."
-  (let [date (js/Date.)
-        _ (.setTime date (js/Date.parse s))
-        year (.getFullYear date)
-        month (inc (.getMonth date)) ; zero based
-        day (.getDate date)]
-    (clojure.string/join "-" [day month year])))
+(defn date-fields [date]
+  [(.getFullYear date) (inc (.getMonth date)) (.getDate date)])
+
+(defn printable-date [date]
+  "Converts a javascript Date into something more readable."
+  (clojure.string/join "-" (date-fields date)))
 
 (defn collapse-same
   ([coll]

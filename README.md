@@ -56,7 +56,7 @@ Inspect the resulting collection/core (named "frontpage") using the Solr admin i
 at [http://localhost:8983/solr]
 
 # Compiling Clojurescript
-To compile the webpage app and making changes to the code, go to the frontpage-client directory and start:
+To compile the webpage app and making changes to the code, go to the _frontpage-client_ directory and start:
 ```
 $ lein deps
 $ lein cljsbuild clean
@@ -65,39 +65,40 @@ $ lein cljsbuild once
 
 # Running
 
-Start the jetty server and solr reverse proxy using:
+In the _frontpage-client_ subproject, start the jetty server and solr reverse proxy using:
 ```
 $ lein servlet run
 ```
 This will open the webapp at http://localhost:3000 in a new browser window
 and makes the solr server available at http://localhost:3000/solr, allowing
-the javascript to query and post to solr directly.
+the javascript to query and post to solr directly (obeying the same-origin restrictions present in XHR requests).
 
 Features available in the application:
 
 * Type a query in lucene syntax for a full-text search
 * Use the _q_ request parameter to specify a query via the url.
 * Narrow / broaden search results by the facets on the left side, these are toggles.
+* The date facets are hierarchical.
 * Select a document by clicking on its title, you can then edit the
   document in-place.
-* The statistics table in the top right lists the number of listed
-  documents, this is reset after a reload.
 
 The app is styled using the [Zurb Foundation](foundation.zurb.com) CSS framework.
 
 # Development
 If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
 cider-jack-in') and execute
-`(require 'init-repl)`. After that, open the  URL
-http://localhost:9000/index.hml in the browser. (The Cljs repl doesn't work with the
-http://localhost:3000 location because of the urls it generates)
+`(require 'init-repl)`. After that, reload the main page at http://localhost:3000/index.html and your can type
+expressions in the repl session which are evaluated by the brower.
 
 Use the `lein cljsbuild auto` command to automatically compile modified
 Clojurescript files.
 
 # Todo
+Sort the date related facet lists.
+
 Use solr cell to extract the html content from the body of a post (see
 https://cwiki.apache.org/confluence/display/solr/Uploading+Data+with+Solr+Cell+using+Apache+Tika).
 The import uses jsoup to extract the text, but this is not available when
 editing documents using Clojurescript.
+
 
