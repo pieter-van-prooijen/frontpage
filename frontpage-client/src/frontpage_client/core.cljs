@@ -13,8 +13,6 @@
             [secretary.core :as secretary :include-macros true])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
-(enable-console-print!)
-
 (defn set-doc [doc id]
   "Replace the specified document with a new doc (using id to retrieve it from solr)."
   (let [c (chan)]
@@ -176,7 +174,8 @@
        (frontpage-client.facets/install-facet-select-loop state owner))))
 
  
-(def app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
+;; Keep the global state when this file is reloaded by figwheel.
+(defonce app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
                 :facets {}})
 
 ;; Define a route which runs a search based on the "q" request parameter.
@@ -193,4 +192,3 @@
               :tx-listen (partial statistics/tx-listen conn)})))
 
 (secretary/dispatch! (.-URL js/document))
-
