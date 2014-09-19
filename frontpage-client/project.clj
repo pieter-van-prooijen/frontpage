@@ -11,9 +11,9 @@
   :url "https://github.com/pieter-van-prooijen/frontpage"
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2311"]
+                 [org.clojure/clojurescript "0.0-2322"]
                  [org.clojure/core.async "0.1.303.0-886421-alpha"]
-                 [om "0.6.5"]
+                 [om "0.7.2"]
                  [secretary "1.1.0"]
                  [datascript "0.1.6"]
                  [com.cemerick/piggieback "0.1.3"]

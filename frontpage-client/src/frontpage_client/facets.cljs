@@ -18,25 +18,19 @@
 
 ;; Answer a component which can hide or reveal more facet values, in multiples of 
 ;; :page-size (defined in opts).
-(defn page-facet [facet owner opts]
+(defn page-facet [facet owner {:keys [up on-click-fn]}]
   (om/component
-   (let [page-size (:page-size opts)
-         nof-pages (js/Math.ceil (/ (count (:counts facet)) (* page-size 2))) ; counts are in pairs
-         page (get facet :page 0)
-         button-class "facet-page button tiny radius icon "]
-     (if  (:up opts)
-       (dom/a #js {:className (str button-class (when (<= page 0) "hide")) :onClick
-                   (fn [_] (om/update! facet :page (dec page)))}  
+   (let [button-class "facet-page button tiny radius icon "]
+     (if up
+       (dom/a #js {:className (str button-class) :onClick on-click-fn}  
               (frontpage-client.util/icon "arrow-thick-top"))
-       (dom/a #js {:className (str button-class (when (>= page (dec nof-pages)) "hide"))
-                   :onClick (fn [_] (om/update! facet :page (inc page)))}
+       (dom/a #js {:className (str button-class) :onClick on-click-fn}
               (frontpage-client.util/icon "arrow-thick-bottom"))))))
 
 
-(defn child-facet? [facet-name]
+(defn child-facet? [facet-key]
   "Answer if facet-name is a child facet"
-  (some (partial = facet-name) (vals solr/facet-field-parent-child)))
-
+  (some (partial = facet-key) (vals solr/facet-field-parent-child)))
 
 (defn clear-facet-values [app facet-key]
   "Unselect all values of the facet keyed on facet-key, including its child facets"
@@ -45,15 +39,14 @@
     (recur app (:child-key facet))))
 
 (defn toggle-facet-value [app facet-name value]
-  "Toggle the value in the set of selected values of facet."
   (let [facet-key (keyword facet-name)
-        keys [:facets facet-key :selected-values]
-        selected-values (get-in @app keys #{})]
+        ks [:facets facet-key :selected-values]
+        selected-values (get-in @app ks #{})]
     (if (selected-values value)
       (let [facet (get-in @app [:facets facet-key])]
-        (om/update! app keys (disj selected-values value))
-        (clear-facet-values app (:child-key facet)))
-      (om/update! app keys (conj selected-values value)))))
+        (om/update! app ks (disj selected-values value))
+        (clear-facet-values app (:child-key facet))) ; clear children
+      (om/update! app ks (conj selected-values value)))))
 
 ;; Set the specified facet and value, making sure the facet definition is complete.
 (defn- create-and-set-facet [app facet-keyword value]
@@ -80,11 +73,10 @@
   "Retrieve the facet-select channel and handle the incoming requests in the form [<facet-name> <value> <command>]."
   (go-loop [c (om/get-shared owner :facet-select-chan)]
            (let [[facet-name value] (<! c)]
-
-             (select-facet-from-chan app facet-name value)
-
              (om/update! app :page 0)
-             (frontpage-client.core/search app owner) 
+
+             ;; Search uses staged invocation, don't render the selected facets until the search result is in.
+             (frontpage-client.core/search app (fn [app] (select-facet-from-chan app facet-name value))) 
              (recur c))))
 
 (defn select-facet [owner facet-name value]
@@ -100,9 +92,6 @@
 (defmethod facet-value-label "+1YEAR" [_ value gap]
    (.getFullYear (js/Date. value)))
 
-(declare facet-list)
-
-
 (defn sort-facet-counts? [facet-name]
   "Answer if the facet counts of facet-name should be sorted numerically, not on the count"
   (#{:created_on_year :created_on_month :created_on_day} (keyword facet-name)))
@@ -116,52 +105,62 @@
 (defn partition-in-pages [counts page-size]
    (partition page-size page-size () counts))
 
-;; Check if the page number of a facet is still valid for the current selection, answer the
-;; first page a selected value is on or the current page
-(defn adjust-page [selected-values sorted-counts page-size default]
-  (nth 
-   (remove nil?
-           (for [[page page-part] 
-                 (partition 2 (interleave (range) (partition-in-pages sorted-counts page-size)))
-                 [value _] page-part]
-             (when (get selected-values value)
-               page)))
-   0 default))
+(declare facet-list)
 
-  ;; flat list of facet-value, count pairs, plus a set of the selected values
-(defn facet-value-list [facets owner facet page-size]
-  (apply dom/ul #js {:className "side-nav"}
-         (let [facet-name (:name facet)
-               paired (pair-and-sort-facet-counts facet-name (:counts facet))
-               page (adjust-page (:selected-values facet) paired page-size (get facet :page 0))
-               _ (om/update! facet :page page)
-               counts (nth (partition-in-pages paired page-size) page ())] ; FIXME, gives out-of-bounds ?
-           (for [[facet-value count] counts]
-             (let [selected (contains? (:selected-values facet) facet-value)]
-               (dom/li (when selected #js {:className "active"})
-                       (dom/a #js {:onClick (fn [_] (select-facet owner facet-name facet-value))}
-                              (dom/span nil (facet-value-label facet-name facet-value (:gap facet)))
-                              (dom/span nil " ")
-                              (dom/span nil (str "(" count ")")))
-                       (when-let [child-key (and selected (:child-key facet))]
-                         ;; child could not be present yet, because the search result is asynchronous.
-                         ;; will be rerendered.
-                         (when (child-key facets)
-                           (facet-list facets owner (child-key facets))))))))))
+;; Recursive list of facet values and counts and any sub facets.
+(defn facet-value-list [facets owner {:keys [facet-key page page-size]}]
+  (reify
+    om/IRender
+    (render [_]
+      (apply dom/ul #js {:className "side-nav"}
+             (let [facet (facet-key facets)
+                   facet-name (:name facet)
+                   paired (pair-and-sort-facet-counts facet-name (:counts facet))
+                   counts (nth (partition-in-pages paired page-size) page ())]
+               (for [[facet-value count] counts]
+                 (let [selected (contains? (:selected-values facet) facet-value)]
+                   (dom/li (when selected #js {:className "active"})
+                           (dom/a #js {:onClick (fn [_] (select-facet owner facet-name facet-value))}
+                                  (dom/span nil (facet-value-label facet-name facet-value (:gap facet)))
+                                  (dom/span nil " ")
+                                  (dom/span nil (str "(" count ")")))
+                           (when-let [child-key (and selected (:child-key facet))]
+                             (om/build facet-list facets {:opts {:facet-key child-key :page-size page-size}}))))))))))
 
-
-(defn facet-list [facets owner facet]
-  (let [facet-name (:name facet)
-        facet-title (.t js/i18n (str "facet-name." facet-name))
-        page-size 5]
-    (dom/li nil
-            (if (child-facet? facet-name)
-              (dom/h5 nil facet-title)
-              (dom/h4 nil facet-title))
-            (om/build page-facet facet {:opts {:up true, :page-size page-size}})
-            (facet-value-list facets owner facet page-size)
-            (om/build page-facet facet {:opts {:up false, :page-size page-size}}))))
-
+(defn facet-list [facets owner {:keys [facet-key page-size]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+      {:page 0})
+    om/IWillUpdate
+    (will-update [_ next-facets next-state]
+      (let [facet (facet-key next-facets)
+            page (:page next-state)
+            top-of-page-idx (* page page-size)
+            last-idx (dec (count (:counts facet)))]
+        ;; Page must stay in range when a facet is selected.
+        (om/set-state! owner :page (if (< last-idx top-of-page-idx) 0 page))))
+    om/IRenderState
+    (render-state [_ {:keys [page]}]
+      (let [facet (facet-key facets)
+            facet-name (:name facet)
+            facet-title (.t js/i18n (str "facet-name." facet-name))
+            change-page (fn [f]
+                          (fn [_] 
+                            (om/set-state! owner :page (f page))
+                            (om/update! facets [facet-key :page] (f page)))) ; force a re-render of the value list
+            nof-pages (js/Math.ceil (/ (count (:counts facet)) (* page-size 2)))] ; counts are in pairs
+        (dom/li nil
+                (if (child-facet? facet-key)
+                  (dom/h5 nil facet-title)
+                  (dom/h4 nil facet-title))
+                (when (> page 0)
+                  (om/build page-facet facet {:opts {:up true
+                                                     :on-click-fn (change-page dec)}}))
+                (om/build facet-value-list facets {:opts {:facet-key facet-key :page page :page-size page-size}})
+                (when (< page (dec nof-pages))
+                  (om/build page-facet facet {:opts {:up false
+                                                     :on-click-fn (change-page inc)}})))))))
 
 (defn facets-list [facets owner]
   "Render all facets contained in the facet map of facet-key => facet-def which are not child facets"
@@ -172,7 +171,7 @@
     om/IRender
     (render [this]
       (apply dom/ul #js {:className "side-nav"}
-             (for [[facet-field facet] facets]
-               (when-not (child-facet? facet-field)
-                 (facet-list facets owner facet)))))))
+             (for [[facet-key _] facets]
+               (when-not (child-facet? facet-key)
+                 (om/build facet-list facets {:opts {:facet-key facet-key :page-size 5}})))))))
 

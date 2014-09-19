@@ -55,9 +55,8 @@
 ;; m is a map of field-name => facet definition
 (defn create-field-queries [m]
   (->> m
-       (map (fn [[_ {:keys [selected-values] :as facet-definition}]]
-              (when-not (empty? selected-values)
-                (create-query facet-definition selected-values))))
+       (map (fn [[_ facet]]
+              (create-query facet (:selected-values facet))))
        (remove nil?)))
 
 ;; Frontpage document fields, with a subset to answer in a search query.

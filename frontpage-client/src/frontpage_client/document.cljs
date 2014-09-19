@@ -66,7 +66,7 @@
      (let [result (<! c)]
        (print result)))
     modified))
-
+ 
 (defn edit-doc [doc owner {:keys [toggle-editing-fn doc-changed-fn]}]
   (reify
     om/IInitState

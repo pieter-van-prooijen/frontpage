@@ -93,6 +93,9 @@ expressions in the repl session which are evaluated by the brower.
 Use the `lein cljsbuild auto` command to automatically compile modified
 Clojurescript files.
 
+Or use the `lein figwheel` command to automatically compile and reload changed sources in to the application. This
+automatically uses the clsjbuild ffunctionality.
+
 # Todo
 Sort the date related facet lists.
 

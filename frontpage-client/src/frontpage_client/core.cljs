@@ -24,53 +24,57 @@
 
 ;; Determine the current facet-fields to use in the query, using the parent /child hierarchy.
 (defn facet-fields [facets]
-  (->> (for [{:keys [selected-values child-key]} (vals facets)]
-         (when-not (empty? selected-values)  ;; TODO remove facet from selected list when values are empty ?
+  (->> (for [{:keys [child-key selected-values] :as facet} (vals facets)]
+         (when-not (empty? selected-values)
            child-key))
        (remove nil?)
        (concat solr/facet-field-doc-fields)))
 
-(defn- update-facet [facet-field counts gap facet]
+(defn- update-facet [facet-key counts gap facet]
   "Update the specified facet map with the new fields."
-  (assoc facet :name (name facet-field) :counts counts :gap gap
-         :child-key (facet-field solr/facet-field-parent-child)))
+  (assoc facet :name (name facet-key) :counts counts :gap gap
+         :child-key (facet-key solr/facet-field-parent-child)))
 
 (defn update-facets-from-result [app search-result]
   "Put the facet related aspect of search-result in the global app state"
   (let [facet-fields (get-in search-result [:facet_counts :facet_fields])
         facet-ranges (get-in search-result [:facet_counts :facet_ranges])]
-    (doseq [[facet-field counts] facet-fields]
-      (om/transact! app [:facets facet-field] (partial update-facet facet-field counts nil)))
-    (doseq [[facet-field {:keys [counts gap]}] facet-ranges] 
-      (om/transact! app [:facets facet-field] (partial update-facet facet-field counts gap)))))
+    (doseq [[facet-key counts] facet-fields]
+      (om/transact! app [:facets facet-key] (partial update-facet facet-key counts nil)))
+    (doseq [[facet-key {:keys [counts gap]}] facet-ranges] 
+      (om/transact! app [:facets facet-key] (partial update-facet facet-key counts gap)))))
+
+(defn process-search-result [result app]
+  (let [docs (get-in result [:response :docs])
+        nof-docs (get-in result [:response :numFound])
+        highlighting (get-in result [:highlighting])]
+    (om/update! app :docs docs)
+    (om/update! app :highlighting highlighting)
+    (om/update! app :nof-docs nof-docs)
+    (update-facets-from-result app result)
+    (om/update! app :current nil)))
+
+(defn search-start
+  ([q page page-size facets search-chan]
+     "Search with the current query, paging etc. in solr, update the state with the results"
+     (let [facet-fields (facet-fields facets)]
+       (solr/search q facets page page-size facet-fields search-chan)))
+  ([app search-chan]
+     "Search with retrieving the parameters from the app state, runs async."
+     (let [{:keys [q page page-size facets]} @app]
+         (search-start q page page-size facets search-chan))))
 
 (defn search
-  ([q page page-size facets app owner]
-     "Search with the current query, paging etc. in solr, update the state with the results"
-     (let [search-chan (om/get-shared owner :search-chan)
-           facet-fields (facet-fields facets)]
-       (solr/search q facets page page-size facet-fields search-chan)
-       (go
-        (let [result (<! search-chan)
-              docs (get-in result [:response :docs])
-              nof-docs (get-in result [:response :numFound])
-              highlighting (get-in result [:highlighting])]
-          (om/update! app :docs docs)
-          (om/update! app :highlighting highlighting)
-          (om/update! app :nof-docs nof-docs)
-          (update-facets-from-result app result)
-          (om/update! app :current nil)))))
-  ([app owner]
-     "Search with retrieving the parameters from the app state, runs async."
-       (let [{:keys [q page page-size facets]} @app]
-         (search q page page-size facets app owner))))
+  ([app stage-fn]
+     (frontpage-client.util/staged-async-exec search-start process-search-result app stage-fn))
+  ([app]
+     (search app (fn [_]))))
 
 (defn search-from-box [app owner]
   (let [q (frontpage-client.util/input-value owner "query")]
        (om/update! app :q q)
        (om/update! app :page 0)
-       (om/update! app :selected-facet-values {})
-       (search app owner)))
+       (search app)))
 
 (defn search-box [app owner]
   (reify
@@ -130,7 +134,7 @@
     om/IRender
     (render [_]
       (let [pagination-opts {:opts {:page-changed-fn (fn [page] 
-                                                       (search app owner))}}]
+                                                       (search app))}}]
         (dom/div #js {:className "row"}
                  (dom/div #js {:className "large-12 columns"}
                           (dom/h2 nil (str (:nof-docs app) " " "Results"))
@@ -144,38 +148,36 @@
                                                             :init-state {:current (= 1 (:nof-docs app))}})))))
                           (om/build frontpage-client.pagination/pagination app pagination-opts)))))))
 
-(defn root [state owner opts]
+(defn root [app owner opts]
   "Setup the root react component"
-   (reify
-     om/IRender
-     (render [_]
-       (dom/div nil
-                (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-3 columns hide"} ; not shown
-                                  (om/build statistics/statistics state))
-                         (dom/div #js {:className "large-9 columns"}
-                                  (dom/h1 nil "Frontpage")))
-                (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-3 columns"} 
-                                  (om/build frontpage-client.facets/facets-list (:facets state)))
-                         (dom/div #js {:className "large-9 columns"}
-                                  (om/build search-box state)
-                                  (om/build result-list state)))
-                (dom/div #js {:className "row"}
-                         (dom/div #js {:className "large-3 columns"})
-                         (dom/div #js {:className "large-9 columns"}))))
-     om/IWillMount
-     (will-mount [_]
-       (let [q (:q opts)]
-         (when-not (clojure.string/blank? q)
-           (om/update! state :q q) ; not directly visible with (:q state) ?
-           (let [{:keys [page page-size selected-facet-values]} state]
-             (search q page page-size selected-facet-values state owner))))
-       (frontpage-client.facets/install-facet-select-loop state owner))))
+  (reify
+    om/IWillMount
+    (will-mount [_]
+      (let [q (:q opts)]
+        (when-not (clojure.string/blank? q)
+          (search app (fn [cursor] (om/update! cursor :q q)))))
+      (frontpage-client.facets/install-facet-select-loop app owner))
+    om/IRender
+    (render [_]
+      (dom/div nil
+               (dom/div #js {:className "row"}
+                        (dom/div #js {:className "large-3 columns hide"} ; not shown
+                                 (om/build statistics/statistics app))
+                        (dom/div #js {:className "large-9 columns"}
+                                 (dom/h1 nil "Frontpage")))
+               (dom/div #js {:className "row"}
+                        (dom/div #js {:className "large-3 columns"} 
+                                 (om/build frontpage-client.facets/facets-list (:facets app)))
+                        (dom/div #js {:className "large-9 columns"}
+                                 (om/build search-box app)
+                                 (om/build result-list app)))
+               (dom/div #js {:className "row"}
+                        (dom/div #js {:className "large-3 columns"})
+                        (dom/div #js {:className "large-9 columns"}))))))
 
  
 ;; Keep the global state when this file is reloaded by figwheel.
-(defonce app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
+(def initial-app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
                 :facets {}})
 
 ;; Define a route which runs a search based on the "q" request parameter.
@@ -183,11 +185,10 @@
 (secretary/defroute "*" [query-params]
   (let [q (:q query-params)
         conn (frontpage-client.statistics/create-conn)]
-    (om/root root app-state 
+    (om/root root initial-app-state 
              {:opts {:q q}
               :target (. js/document (getElementById "app"))
-              :shared {:search-chan (chan) 
-                       :facet-select-chan (chan)
+              :shared {:facet-select-chan (chan)
                        :db conn}
               :tx-listen (partial statistics/tx-listen conn)})))
 
