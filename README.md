@@ -3,8 +3,7 @@
 Experiment with a single page webapp which opens up a large document set
 using Clojurescript, Clojure and Solr, in combination with
 React/Om and other Clojurescript libraries. Currently, it does full-text
-search, facets, url routing, inline editing and statistics (with the
-Datascript library).
+search, facets, url routing and inline editing.
 
 It uses the BoingBoing blog post dump as its document set.
 
@@ -63,6 +62,8 @@ $ lein cljsbuild clean
 $ lein cljsbuild once
 ```
 
+Or use the "lein figwheel" command which reloads code changes automatically in the browser.
+
 # Running
 
 In the _frontpage-client_ subproject, start the jetty server and solr reverse proxy using:
@@ -77,12 +78,15 @@ Features available in the application:
 
 * Type a query in lucene syntax for a full-text search
 * Use the _q_ request parameter to specify a query via the url.
-* Narrow / broaden search results by the facets on the left side, these are toggles.
+* Narrow / broaden search results by toggling the facets on the left side.
 * The date facets are hierarchical.
 * Select a document by clicking on its title, you can then edit the
   document in-place.
+* Show all documents on a certain date by clicking the article timestamp.
 
 The app is styled using the [Zurb Foundation](foundation.zurb.com) CSS framework.
+
+
 
 # Development
 If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
@@ -97,7 +101,6 @@ Or use the `lein figwheel` command to automatically compile and reload changed s
 automatically uses the clsjbuild ffunctionality.
 
 # Todo
-Sort the date related facet lists.
 
 Use solr cell to extract the html content from the body of a post (see
 https://cwiki.apache.org/confluence/display/solr/Uploading+Data+with+Solr+Cell+using+Apache+Tika).

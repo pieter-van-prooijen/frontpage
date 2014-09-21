@@ -7,46 +7,42 @@
             [cljs.core.async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-;; Document component for frontpage, allows in-place editing.
+;; Document component, allows in-place editing.
 
 (enable-console-print!)
 
 (defn metadata [doc owner]
-  (reify
-    om/IRender
-    (render [_]
-      (let [author (:author doc)
-            created-on (js/Date. (:created_on doc))]
-        (apply dom/div #js {:className "metadata"}
-               (dom/a #js {:onClick (fn [_]
-                                      (facets/select-facet owner (name :created_on) created-on))}
-                      (frontpage-client.util/printable-date created-on))
-               (dom/a #js {:onClick (fn [_]
-                                      (facets/select-facet owner (name :author) author))} author)
-               (butlast
-                (interleave       ; not interpose, can't reuse components.
-                 (for [category (:categories doc)]
-                   (dom/a #js {:className "category"
-                               :onClick (fn [_]
-                                          (facets/select-facet owner (name :categories) category))}
-                          category))
-                 (repeatedly #(dom/span nil " - ")))))))))
+  (om/component
+   (let [author (:author doc)
+         created-on (js/Date. (:created_on doc))]
+     (apply dom/div #js {:className "metadata"}
+            (dom/a #js {:onClick (fn [_]
+                                   (facets/select-facet owner (name :created_on) created-on))}
+                   (frontpage-client.util/printable-date created-on))
+            (dom/a #js {:onClick (fn [_]
+                                   (facets/select-facet owner (name :author) author))} author)
+            (butlast
+             (interleave      ; not interpose, can't reuse components.
+              (for [category (:categories doc)]
+                (dom/a #js {:className "category"
+                            :onClick (fn [_]
+                                       (facets/select-facet owner (name :categories) category))}
+                       category))
+              (repeatedly #(dom/span nil " - "))))))))
 
 (defn show-doc [doc owner {:keys [toggle-editing-fn]}]
-  (reify
-    om/IRender
-    (render [_]
-      (if doc
-        (dom/div #js {:className "row"}
-                 (dom/div #js {:className "large-12 columns"}
-                          (dom/h2 nil (:title doc))
-                          (frontpage-client.util/html-dangerously dom/div nil (:body doc))
-                          (om/build metadata doc)
-                          (dom/div #js {:className "row"}
-                                   (dom/div #js {:className "large-12 columns"}
-                                            (dom/a #js {:className "radius button inline left"
-                                                        :onClick toggle-editing-fn} "Edit")))))
-        (dom/div nil "No current document")))))
+  (om/component
+   (if doc
+     (dom/div #js {:className "row"}
+              (dom/div #js {:className "large-12 columns"}
+                       (dom/h2 nil (:title doc))
+                       (frontpage-client.util/html-dangerously dom/div nil (:body doc))
+                       (om/build metadata doc)
+                       (dom/div #js {:className "row"}
+                                (dom/div #js {:className "large-12 columns"}
+                                         (dom/a #js {:className "radius button inline left"
+                                                     :onClick toggle-editing-fn} "Edit")))))
+     (dom/div nil "No current document"))))
 
 (defn handle-change [e owner key]
   "Set the local state of owner (under key) with the value contained in the e event."

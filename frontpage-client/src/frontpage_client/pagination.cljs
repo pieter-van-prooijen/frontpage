@@ -45,20 +45,18 @@
    page (the current, zero-based page number), nof-docs and page-size.
    Takes a page-changed-fn key in its opts parameter which is called with a singe page parameter
    when the current page changes"
-  (reify
-    om/IRender
-    (render [this]
-      (apply dom/ul #js {:className "pagination"}
-             (let [nof-pages (js/Math.ceil (/ (:nof-docs app) (:page-size app)))
-                   page (:page app)
-                   page-changed-fn (:page-changed-fn opts)
-                   page-li-part (partial page-li app owner page-changed-fn)] ; fix the first three args to page-li
-               (concat
-                [(page-li-part 0 "arrow" "&laquo;")]
-                (for [page-num (build-page-nums nof-pages page)]
-                  (if (= page-num page)
-                    (page-li-part page-num "current" nil)
-                    (if (= -1 page-num) ; ellipsis 
-                      (page-li-part page-num "unavailable" "&hellip;")
-                      (page-li-part page-num "" nil))))
-                [(page-li-part (dec nof-pages) "arrow" "&raquo;")]))))))
+  (om/component
+   (apply dom/ul #js {:className "pagination"}
+          (let [nof-pages (js/Math.ceil (/ (:nof-docs app) (:page-size app)))
+                page (:page app)
+                page-changed-fn (:page-changed-fn opts)
+                page-li-part (partial page-li app owner page-changed-fn)] ; fix the first three args to page-li
+            (concat
+             [(page-li-part 0 "arrow" "&laquo;")]
+             (for [page-num (build-page-nums nof-pages page)]
+               (if (= page-num page)
+                 (page-li-part page-num "current" nil)
+                 (if (= -1 page-num)    ; ellipsis 
+                   (page-li-part page-num "unavailable" "&hellip;")
+                   (page-li-part page-num "" nil))))
+             [(page-li-part (dec nof-pages) "arrow" "&raquo;")])))))

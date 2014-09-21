@@ -38,11 +38,6 @@
         (collapse-same (rest coll) v)
         (cons v (collapse-same coll))))))
 
-(defn xor [a b]
-  "Answer a set with the union of a and (complement b), e.g. delete el from the result if present in both sets"
-  (let [both (clojure.set/intersection a b)]
-    (clojure.set/difference (clojure.set/union a b) both)))
-
 ;; Allow the update methods on an Atom containing a hash, to simulate the modifying the app state.
 ;; cursor contains the atom.
 (extend-type Atom
@@ -56,9 +51,10 @@
   (if (om/rendering?) cursor @cursor))
 
 (defn staged-async-exec [start-fn process-results-fn app stage-fn]
-  "Execute an async call with start-fn, processing the result received from chan into app with process-results-fn. 
+  "Start an async call with start-fn, processing the result received from chan into app with process-results-fn. 
+   
    Allows for 'staged' modifications to the global app stage, e.g. changes which are needed for the input to start-fn but which should not be rendered before the function has completed and processed the results.
-   stage-fn does these modifications into this staging app state."
+   stage-fn does these modifications into this staged app state."
   (let [chan (chan)
         staged-map (assoc (possibly-deref app) :staged true)
         staged-app (atom staged-map)] ; assumes stage-fn and start-fn always derefs this.
