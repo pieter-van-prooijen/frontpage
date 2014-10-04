@@ -3,7 +3,7 @@
             [om.dom :as dom :include-macros true]
             [frontpage-client.solr :as solr]
             [frontpage-client.search]
-            [cljs.core.async :refer [<! >! take! chan]]
+            [cljs.core.async :refer [<! >! take! chan pub sub]]
             [frontpage-client.document]
             [frontpage-client.util]
             [frontpage-client.pagination]
@@ -84,7 +84,11 @@
 
 (defn result-list [app owner]
   (om/component
-   (let [pagination-opts {:opts {:page-changed-fn (fn [page] 
+   (let [pagination-opts {:opts {:page (:page app)
+                                 :nof-docs (:nof-docs app)
+                                 :page-size (:page-size app)
+                                 :page-changed-fn (fn [page]
+                                                    (om/update! app :page page)
                                                     (frontpage-client.search/search app))}}]
      (dom/div #js {:className "row"}
               (dom/div #js {:className "large-12 columns"}
@@ -106,8 +110,7 @@
     ; Initial render, use the query found in the page load request.
     (will-mount [_]
       (when-not (clojure.string/blank? q)
-        (frontpage-client.search/search app (fn [cursor] (om/update! cursor :q q))))
-      (frontpage-client.facets/install-facet-select-loop app owner))
+        (frontpage-client.search/search app (fn [cursor] (om/update! cursor :q q)))))
     om/IRender
     (render [_]
       (dom/div nil
@@ -118,7 +121,7 @@
                                  (dom/h1 nil "Frontpage")))
                (dom/div #js {:className "row"}
                         (dom/div #js {:className "large-3 columns"} 
-                                 (om/build frontpage-client.facets/facets-list (:facets app)))
+                                 (om/build frontpage-client.facets/facets-list app))
                         (dom/div #js {:className "large-9 columns"}
                                  (om/build search-box app)
                                  (om/build result-list app)))
@@ -128,18 +131,20 @@
 
  
 ;; Keep the global state when this file is reloaded by figwheel.
-(def initial-app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
+(defonce initial-app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
                 :facets {}})
 
 ;; Define a route which runs a search based on the "q" request parameter.
 ;; Creates the global om component and shared state when invoked.
 (secretary/defroute "*" [query-params]
   (let [q (:q query-params)
-        conn (frontpage-client.statistics/create-conn)]
+        conn (frontpage-client.statistics/create-conn)
+        pub-chan (chan)]
     (om/root root initial-app-state 
              {:opts {:q q}
               :target (. js/document (getElementById "app"))
-              :shared {:facet-select-chan (chan)
+              :shared {:publication-chan pub-chan
+                       :publication (pub pub-chan :topic)
                        :db conn}
               :tx-listen (partial statistics/tx-listen conn)})))
 

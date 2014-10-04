@@ -60,7 +60,8 @@
        (remove nil?)))
 
 ;; Frontpage document fields, with a subset to answer in a search query.
-(def all-doc-fields [:id :title :created_on :author :categories :body])
+(def all-doc-fields [:id :title :created_on :author :categories :body 
+                     :created_on_year :created_on_month :created_on_day])
 (def search-doc-fields (remove #(= % :body) all-doc-fields))
 
 ;; Facet fields and parent / child relations

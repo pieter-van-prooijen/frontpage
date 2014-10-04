@@ -4,7 +4,8 @@
             [om.dom :as dom :include-macros true]
             [frontpage-client.facets :as facets]
             [frontpage-client.solr :as solr]
-            [cljs.core.async :refer [<! >! chan put!]])
+            [cljs.core.async :refer [<! >! chan put!]]
+            [goog.net.HttpStatus :as httpStatus])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; Document component, allows in-place editing.
@@ -14,7 +15,7 @@
 (defn metadata [doc owner]
   (om/component
    (let [author (:author doc)
-         created-on (js/Date. (:created_on doc))]
+         created-on (js/Date. (:created_on doc))] ; solr answers an iso 8601 date.
      (apply dom/div #js {:className "metadata"}
             (dom/a #js {:onClick (fn [_]
                                    (facets/select-facet owner (name :created_on) created-on))}
@@ -54,13 +55,18 @@
   (let [title (om/get-state owner :title)
         body (om/get-state owner :body)
         c (chan)
+        created-on (js/Date. (:created_on @doc))
         modified (-> @doc
             (assoc :title title)
-            (assoc :body body))]
+            (assoc :body body)
+            (assoc :created_on_year (.getFullYear created-on)) ; re-create non-stored fields
+            (assoc :created_on_month (.getMonth created-on))
+            (assoc :created_on_day (.getDate created-on)))]
     (solr/put-doc modified c)
     (go 
      (let [result (<! c)]
-       (print result)))
+       (when-not (httpStatus/isSuccess result)
+         (js/alert "Error saving document"))))
     modified))
  
 (defn edit-doc [doc owner {:keys [toggle-editing-fn doc-changed-fn]}]
@@ -94,14 +100,13 @@
 
 
 (defn current-doc [doc owner {:keys [doc-changed-fn]}]
-  "Highlight the current document"
+  "Highlight / Edit the current document"
   (reify
     om/IInitState
     (init-state [_]
       {:editing false})
     om/IRenderState 
     (render-state [_ {:keys [editing]}]
-      ;; Use owner (the react component) and not "this" (reified protocol instance) with om/*-state functions.
       (let [opts {:opts {:toggle-editing-fn (fn [_] 
                                               (om/update-state! owner :editing (fn [old] (not old))))
                          :doc-changed-fn doc-changed-fn}}]

@@ -86,7 +86,30 @@ Features available in the application:
 
 The app is styled using the [Zurb Foundation](foundation.zurb.com) CSS framework.
 
+# Code
+Global state:
+- current query
+- current list of search results
+- current facets received from solr, containing a list of facet-values and the current state (value is selected or
+  not)
+- current selected document
 
+
+Om control flow:
+1. input event handler invokes action (e.g. change the current "q" and search with q)
+2. search invokes a call to solr which puts the result on a supplied channel when received from the server
+3. search reads the result from the channel and updates the global state.
+
+*problem:* When selecting a facet it's already marked as selected in the app state (and possibly rendered), but the
+corresponding child facets and values are not yet received from solr due to the async retrieval.
+Causes inconsistent app state, react errors etc.
+
+*solution:* "staged async execution", app state is "copied", copy is mutated and used in searched and thrown away
+afterwards. After receiving the results, the mutation is repeated, together with the results.
+
+See frontpage-client.utils/staged-async-exec for details. 
+
+i18next for facet titles and values translation
 
 # Development
 If you want a browser REPL, startup a nrepl (for instance in Emacs with "M-x
@@ -98,7 +121,7 @@ Use the `lein cljsbuild auto` command to automatically compile modified
 Clojurescript files.
 
 Or use the `lein figwheel` command to automatically compile and reload changed sources in to the application. This
-automatically uses the clsjbuild ffunctionality.
+automatically uses the clsjbuild functionality.
 
 # Todo
 

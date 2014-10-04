@@ -4,7 +4,7 @@
             [frontpage-client.search]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [cljs.core.async :refer [<! >! take! chan]])
+            [cljs.core.async :refer [<! >! take! chan sub unsub]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
 (enable-console-print!)
@@ -15,8 +15,8 @@
 ;; "facet" denotes a type of attribute of a document, like "author"
 ;; "facet value" is a particular instance of that facet, like "John Smith"
 ;;
-;; Facet events arrive on the "facet-select-chan" channel is present in the shared state.
-;; Facet names and values go through a tranlation layer using the i18n javascript library.
+;; Facet events arrive on the "facet-select" topic of the global publication in the shared state.
+;; Facet names and values go through a translation layer using the i18n javascript library.
 
 
 (defn- child-facet? [facet-key]
@@ -60,20 +60,25 @@
 (defmethod select-facet-from-chan :default [app facet-name value]
                         (toggle-facet-value app facet-name value))
 
-(defn install-facet-select-loop [app owner]
+(defn- subscribe-to-facet-select [app owner]
   "Retrieve the facet-select channel and handle the incoming requests in the form [<facet-name> <value>]."
-  (go-loop [c (om/get-shared owner :facet-select-chan)]
-           (let [[facet-name value] (<! c)]
-             (om/update! app :page 0)
+  (let [c (chan)]
+    (om/set-state! owner :facet-select-chan c)
+    (sub (om/get-shared owner :publication) :facet-select c)
+    (go-loop [{:keys [facet-name value]} (<! c)]
+      (om/update! app :page 0)
 
-             ;; Search uses staged invocation, don't render the selected facets until the search result is in.
-             (frontpage-client.search/search app (fn [app] (select-facet-from-chan app facet-name value))) 
-             (recur c))))
+      ;; Search uses staged invocation, don't render the selected facets until the search result is in.
+      (frontpage-client.search/search app (fn [app] (select-facet-from-chan app facet-name value))) 
+      (recur (<! c)))))
+
+(defn unsubscribe-to-facet-select [owner]
+  (unsub (om/get-shared owner :publication) :facet-select (om/get-state owner :facet-select-chan)))
 
 (defn select-facet [owner facet-name value]
   "Handler for other components to select a facet with the specified value."
-  (let [c (om/get-shared owner :facet-select-chan)]
-    (go (>! c [facet-name value]))))
+  (let [c (om/get-shared owner :publication-chan)]
+    (go (>! c {:topic :facet-select :facet-name facet-name :value value}))))
 
 (defmulti facet-value-label (fn [_ value gap] gap))
 
@@ -90,14 +95,13 @@
 (defn pair-and-sort-facet-counts [facet-name counts]
   (let [paired (partition 2 counts)]
     (if (sort-facet-counts? facet-name)
-        (sort-by (comp js/parseInt first) paired)
-        paired)))
+      (sort-by (comp js/parseInt first) paired)
+      paired)))
 
 (defn partition-in-pages [counts page-size]
    (partition page-size page-size () counts))
 
-;; Answer a component which can hide or reveal more facet values, in multiples of 
-;; :page-size (defined in opts).
+;; Answer a component showing an arrow icon and a custom click handler.
 
 (defn page-facet [facet owner {:keys [up on-click-fn]}]
   (om/component
@@ -166,16 +170,21 @@
                       (om/build page-facet facet {:opts {:up false
                                                          :on-click-fn (change-page-fn inc)}})))))))
 
-(defn facets-list [facets owner]
+(defn facets-list [app owner]
   "Render all facets contained in the facet map of facet-key => facet-def which are not child facets"
   (reify
     om/IWillMount
     (will-mount [this]
-      (.init js/i18n))
+      (.init js/i18n)
+      (subscribe-to-facet-select app owner))
+    om/IWillUnmount
+    (will-unmount [this]
+      (unsubscribe-to-facet-select owner))
     om/IRender
     (render [this]
-      (apply dom/ul #js {:className "side-nav"}
-             (for [[facet-key _] facets]
-               (when-not (child-facet? facet-key)
-                 (om/build facet-list facets {:opts {:facet-key facet-key :page-size 5}})))))))
+      (let [facets (:facets app)]
+        (apply dom/ul #js {:className "side-nav"}
+               (for [[facet-key _] facets]
+                 (when-not (child-facet? facet-key)
+                   (om/build facet-list facets {:opts {:facet-key facet-key :page-size 5}}))))))))
 
