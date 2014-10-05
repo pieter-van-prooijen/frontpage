@@ -3,6 +3,7 @@
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [frontpage-client.facets :as facets]
+            [frontpage-client.util :as util]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]]
             [goog.net.HttpStatus :as httpStatus])
@@ -42,7 +43,10 @@
                        (dom/div #js {:className "row"}
                                 (dom/div #js {:className "large-12 columns"}
                                          (dom/a #js {:className "radius button inline left"
-                                                     :onClick toggle-editing-fn} "Edit")))))
+                                                     :data-reveal-id (util/xml-id (:id doc))
+                                                     ;:onClick toggle-editing-fn
+                                                     }
+                                                "Edit")))))
      (dom/div nil "No current document"))))
 
 (defn handle-change [e owner key]
@@ -76,7 +80,7 @@
       (select-keys doc [:title :body]))
     om/IRenderState
     (render-state [_ {:keys [title body]}]
-      (dom/form #js {}
+      (dom/form #js {:id (util/xml-id (:id doc)) :className "reveal-modal" :data-reveal ""}
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (dom/label #js {:className "" :htmlFor "title"} "Title:")
@@ -111,7 +115,6 @@
                                               (om/update-state! owner :editing (fn [old] (not old))))
                          :doc-changed-fn doc-changed-fn}}]
         (dom/div #js {:className "current-doc"}
-                 (if editing
-                   (om/build edit-doc doc opts)
-                   (om/build show-doc doc opts)))))))
+                 (om/build edit-doc doc opts)
+                 (om/build show-doc doc opts))))))
 

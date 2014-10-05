@@ -14,6 +14,11 @@
   (html-dangerously dom/svg {:viewBox "0 0 8 8" :className "icon"}
                     (str "<use xlink:href=\"/open-iconic.svg#" name "\"" " class=\"" name "\"></use>")))
 
+(defn xml-id [s]
+  "Create a valid xml id by substituting all invalid characters with an underscore"
+  (let [re (js/RegExp. "([^a-zA-Z0-9_])" "g")]
+    (.replace s re "_"))) 
+
 (defn input-value [owner ref]
   (.-value (om/get-node owner ref)))
 
