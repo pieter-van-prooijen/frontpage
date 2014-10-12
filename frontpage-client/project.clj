@@ -16,6 +16,7 @@
                  [om "0.7.2"]
                  [secretary "1.1.0"]
                  [datascript "0.1.6"]
+                 [jayq "2.5.2"]
                  [com.cemerick/piggieback "0.1.3"]
                  [figwheel "0.1.4-SNAPSHOT"]]
 

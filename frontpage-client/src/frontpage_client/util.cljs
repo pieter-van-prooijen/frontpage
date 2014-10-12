@@ -2,6 +2,7 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [<! >! take! chan]]
+            [jayq.core :refer [$]]
             [clojure.string])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
@@ -69,3 +70,23 @@
       (let [result (<! chan)]
         (stage-fn app) ; apply the staged modification to the real application state.
         (process-results-fn result app)))))
+
+;;
+;; Wrap the specified react component ("owner") into a reveal modal with the specified id
+;; Reveal elements are not managed by react, because they are manipulated by the reveal javascript which
+;; Reacts doesn't like.
+;; inner-owner is the the result of a om/build invocation.
+(defn reveal-modal [app owner {:keys [reveal-id inner-owner] :as opts}]
+  (reify
+    om/IRender
+    (render [_]
+      (html-dangerously dom/div {} (str "<div id='" reveal-id "' class='reveal-modal' data-reveal></div>")))
+    om/IDidUpdate
+    (did-update [this prev-props prev-state]
+      (let [reveal-modal (. js/document (getElementById reveal-id))]
+        (js/React.renderComponent inner-owner reveal-modal)))))
+
+(defn do-reveal [id op]
+  "Do some operation on the specified reveal modal identified by id. Op can be \"open\" or \"close\""
+  (.foundation ($ (str "#" id)) "reveal" op))
+

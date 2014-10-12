@@ -6,6 +6,7 @@
             [frontpage-client.util :as util]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]]
+            [jayq.core :refer [$]]
             [goog.net.HttpStatus :as httpStatus])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
@@ -32,7 +33,7 @@
                        category))
               (repeatedly #(dom/span nil " - "))))))))
 
-(defn show-doc [doc owner {:keys [toggle-editing-fn]}]
+(defn show-doc [doc owner]
   (om/component
    (if doc
      (dom/div #js {:className "row"}
@@ -43,9 +44,7 @@
                        (dom/div #js {:className "row"}
                                 (dom/div #js {:className "large-12 columns"}
                                          (dom/a #js {:className "radius button inline left"
-                                                     :data-reveal-id (util/xml-id (:id doc))
-                                                     ;:onClick toggle-editing-fn
-                                                     }
+                                                     :onClick #(util/do-reveal (util/xml-id (:id @doc)) "open") }
                                                 "Edit")))))
      (dom/div nil "No current document"))))
 
@@ -73,14 +72,14 @@
          (js/alert "Error saving document"))))
     modified))
  
-(defn edit-doc [doc owner {:keys [toggle-editing-fn doc-changed-fn]}]
+(defn edit-doc [doc owner {:keys [doc-changed-fn]}]
   (reify
     om/IInitState
     (init-state [_]
       (select-keys doc [:title :body]))
     om/IRenderState
     (render-state [_ {:keys [title body]}]
-      (dom/form #js {:id (util/xml-id (:id doc)) :className "reveal-modal" :data-reveal ""}
+      (dom/form #js {}
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (dom/label #js {:className "" :htmlFor "title"} "Title:")
@@ -89,18 +88,22 @@
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (dom/label #js {:className "" :htmlFor "body"} "Body:")
-                                  (dom/textarea #js {:rows "6" :name "body" :value body
+                                  (dom/textarea #js {:rows "10" :name "body" :value body
                                                      :onChange (fn [e] (handle-change e owner :body))})))
-                (dom/ul #js {:className "button-group radius"}
-                        (dom/li nil
-                          (dom/a #js {:className "button strong"
-                                      :onClick (fn [e]
-                                                 (let [modified (commit doc owner)]
-                                                   (doc-changed-fn modified)
-                                                   (toggle-editing-fn e)))} 
-                                 (dom/strong nil "Commit")))
-                        (dom/li nil
-                         (dom/a #js {:className "button" :onClick toggle-editing-fn} "cancel")))))))
+                (dom/div #js {:className "row"}
+                         (dom/div #js {:className "large-12 columns"}
+                                  (let [id (util/xml-id (:id doc))]
+                                    (dom/ul #js {:className "button-group radius"}
+                                            (dom/li nil
+                                                    (dom/a #js {:className "button strong"
+                                                                :onClick (fn [e]
+                                                                           (let [modified (commit doc owner)]
+                                                                             (doc-changed-fn modified)
+                                                                             (util/do-reveal id "close")))} 
+                                                           (dom/strong nil "Commit")))
+                                            (dom/li nil
+                                                    (dom/a #js {:className "button"
+                                                                :onClick #(util/do-reveal id "close")} "cancel"))))))))))
 
 
 (defn current-doc [doc owner {:keys [doc-changed-fn]}]
@@ -111,10 +114,12 @@
       {:editing false})
     om/IRenderState 
     (render-state [_ {:keys [editing]}]
-      (let [opts {:opts {:toggle-editing-fn (fn [_] 
-                                              (om/update-state! owner :editing (fn [old] (not old))))
+      (let [reveal-id (util/xml-id (:id doc))
+            opts {:opts {:reveal-id reveal-id
                          :doc-changed-fn doc-changed-fn}}]
-        (dom/div #js {:className "current-doc"}
-                 (om/build edit-doc doc opts)
-                 (om/build show-doc doc opts))))))
+       
+        (let [edit-doc-owner (om/build edit-doc doc opts)]
+          (dom/div #js {:className "current-doc"}
+                   (om/build util/reveal-modal doc {:opts {:reveal-id reveal-id :inner-owner edit-doc-owner}})
+                   (om/build show-doc doc opts)))))))
 
