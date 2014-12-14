@@ -76,17 +76,24 @@
 ;; Reveal elements are not managed by react, because they are manipulated by the reveal javascript which
 ;; Reacts doesn't like.
 ;; inner-owner is the the result of a om/build invocation.
+
+(defn- render-to-element-with-id [component id]
+  (let [root (. js/document (getElementById id))]
+    (js/React.renderComponent component root)))
+
 (defn reveal-modal [app owner {:keys [reveal-id inner-owner] :as opts}]
   (reify
     om/IRender
     (render [_]
       (html-dangerously dom/div {} (str "<div id='" reveal-id "' class='reveal-modal' data-reveal></div>")))
+    om/IDidMount
+    (did-mount [this]
+      (render-to-element-with-id inner-owner reveal-id))
     om/IDidUpdate
     (did-update [this prev-props prev-state]
-      (let [reveal-modal (. js/document (getElementById reveal-id))]
-        (js/React.renderComponent inner-owner reveal-modal)))))
+      (render-to-element-with-id inner-owner reveal-id))))
 
 (defn do-reveal [id op]
   "Do some operation on the specified reveal modal identified by id. Op can be \"open\" or \"close\""
-  (.foundation ($ (str "#" id)) "reveal" op))
+  (.foundation ($ (str "#" id)) "reveal" (name op)))
 

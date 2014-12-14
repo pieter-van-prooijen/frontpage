@@ -69,19 +69,23 @@
 (def facet-field-doc-fields [:author :categories :created_on_year])
 (def facet-field-parent-child {:created_on_year :created_on_month, :created_on_month :created_on_day})
 
-(defn search [q fq page page-size facet-fields c]
-  "Search for q and put the result as a nested map on the supplied channel.
-   fq is a map of field -> facet-defs queries (which are and-ed) to search for."
-  (let [cb (partial select-cb c)
-        params {:q q
-                :fq (clj->js (create-field-queries fq))
-                :wt "json"
-                :fl (clj->js (map name search-doc-fields)) 
-                :hl true :hl.fl "text" :hl.fragsize 300
-                :start (* page page-size) :rows page-size
-                :facet true
-                :facet.field (clj->js facet-fields) :facet.mincount 1}]
-    (xhrio/send (create-uri solr-select-url params) cb)))
+(defn search 
+  ([q fq page page-size facet-fields c]
+     (search q fq page page-size facet-fields search-doc-fields true c))
+  
+  ([q fq page page-size facet-fields doc-fields highlight c]
+     "Search for q and put the result as a nested map on the supplied channel.
+     fq is a map of field -> facet-defs queries (which are and-ed) to search for."
+     (let [cb (partial select-cb c)
+           params {:q q
+                   :fq (clj->js (create-field-queries fq))
+                   :wt "json"
+                   :fl (clj->js (map name doc-fields)) 
+                   :hl highlight :hl.fl "text" :hl.fragsize 300
+                   :start (* page page-size) :rows page-size
+                   :facet true
+                   :facet.field (clj->js facet-fields) :facet.mincount 1}]
+       (xhrio/send (create-uri solr-select-url params) cb))))
 
 (defn get-doc [id c]
   "Get the specified document"

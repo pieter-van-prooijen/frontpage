@@ -35,7 +35,7 @@
   (om/component
    (dom/form #js {:className "row"}
              (dom/div #js {:className "large-1 columns"}
-                      ( dom/label #js {:className "right inline" :htmlFor "query"} "query:"))
+                      (dom/label #js {:className "right inline" :htmlFor "query"} "query:"))
              (dom/div #js {:className "large-4 columns"}
                       (dom/input #js {:type "text" :placeholder (if-let [q (:q app)] q "query")
                                       :name "q" :ref "query" :id "query"
@@ -116,7 +116,7 @@
       (dom/div nil
                (dom/div #js {:className "row"}
                         (dom/div #js {:className "large-3 columns hide"} ; not shown
-                                 (om/build statistics/statistics app))
+                                 nil)
                         (dom/div #js {:className "large-9 columns"}
                                  (dom/h1 nil "Frontpage")))
                (dom/div #js {:className "row"}
@@ -129,23 +129,26 @@
                         (dom/div #js {:className "large-3 columns"})
                         (dom/div #js {:className "large-9 columns"}))))))
 
- 
-;; Keep the global state when this file is reloaded by figwheel.
-(defonce initial-app-state {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
-                :facets {}})
-
-;; Define a route which runs a search based on the "q" request parameter.
-;; Creates the global om component and shared state when invoked.
-(secretary/defroute "*" [query-params]
-  (let [q (:q query-params)
-        conn (frontpage-client.statistics/create-conn)
-        pub-chan (chan)]
-    (om/root root initial-app-state 
+(defn mount-root [q state]
+  (let [pub-chan (chan)]
+    (om/root root state 
              {:opts {:q q}
               :target (. js/document (getElementById "app"))
               :shared {:publication-chan pub-chan
-                       :publication (pub pub-chan :topic)
-                       :db conn}
-              :tx-listen (partial statistics/tx-listen conn)})))
+                       :publication (pub pub-chan :topic)}})))
+
+ 
+;; Keep the global state when this file is reloaded by figwheel.
+(defonce app-state (atom {:docs [] :highlighting {} :q nil :page 0 :page-size 10 :nof-docs 0
+                                  :facets {}}))
+ 
+;; Define a route which runs a search based on the "q" and "statistics" request parameters.
+;; Creates the global om component and shared state when invoked.
+(secretary/defroute "*" [query-params]
+  (let [q (:q query-params)
+        statistics (:statistics query-params)]
+    (if statistics
+       (statistics/mount-root q statistics/app-state)
+       (mount-root q app-state))))
 
 (secretary/dispatch! (.-URL js/document))

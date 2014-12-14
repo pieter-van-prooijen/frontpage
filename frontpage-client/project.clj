@@ -11,19 +11,20 @@
   :url "https://github.com/pieter-van-prooijen/frontpage"
 
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [org.clojure/clojurescript "0.0-2322"]
-                 [org.clojure/core.async "0.1.303.0-886421-alpha"]
-                 [om "0.7.2"]
-                 [secretary "1.1.0"]
-                 [datascript "0.1.6"]
+                 [org.clojure/clojurescript "0.0-2411"]
+                 [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [om "0.8.0-beta3"]
+                 [sablono "0.2.22"]
+                 [secretary "1.2.1"]
+                 [datascript "0.6.0"]
                  [jayq "2.5.2"]
                  [com.cemerick/piggieback "0.1.3"]
-                 [figwheel "0.1.4-SNAPSHOT"]]
+                 [figwheel "0.1.6-SNAPSHOT"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-servlet "0.4.0"]
             [com.cemerick/clojurescript.test "0.3.1"]
-            [lein-figwheel "0.1.4-SNAPSHOT"]]
+            [lein-figwheel "0.1.6-SNAPSHOT"]]
 
   :jvm-opts ["-Xmx512M"]
 

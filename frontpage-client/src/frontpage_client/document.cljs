@@ -6,14 +6,13 @@
             [frontpage-client.util :as util]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]]
-            [jayq.core :refer [$]]
             [goog.net.HttpStatus :as httpStatus])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; Document component, allows in-place editing.
 
 (enable-console-print!)
-
+ 
 (defn metadata [doc owner]
   (om/component
    (let [author (:author doc)
@@ -88,8 +87,8 @@
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (dom/label #js {:className "" :htmlFor "body"} "Body:")
-                                  (dom/textarea #js {:rows "10" :name "body" :value body
-                                                     :onChange (fn [e] (handle-change e owner :body))})))
+                                  (dom/textarea #js {:rows "10" :name "body"
+                                                     :onChange (fn [e] (handle-change e owner :body))} body)))
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (let [id (util/xml-id (:id doc))]
@@ -116,10 +115,9 @@
     (render-state [_ {:keys [editing]}]
       (let [reveal-id (util/xml-id (:id doc))
             opts {:opts {:reveal-id reveal-id
-                         :doc-changed-fn doc-changed-fn}}]
-       
-        (let [edit-doc-owner (om/build edit-doc doc opts)]
-          (dom/div #js {:className "current-doc"}
-                   (om/build util/reveal-modal doc {:opts {:reveal-id reveal-id :inner-owner edit-doc-owner}})
-                   (om/build show-doc doc opts)))))))
+                         :doc-changed-fn doc-changed-fn}}
+            edit-doc-owner (om/build edit-doc doc opts)]
+        (dom/div #js {:className "current-doc"}
+                 (om/build util/reveal-modal doc {:opts {:reveal-id reveal-id :inner-owner edit-doc-owner}})
+                 (om/build show-doc doc opts))))))
 
