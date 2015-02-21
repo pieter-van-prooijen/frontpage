@@ -1,24 +1,27 @@
 (ns frontpage-client.pagination
   (:require [om.core :as om :include-macros true]
-            [om.dom :as dom :include-macros true]))
+            [om.dom :as dom :include-macros true]
+            [frontpage-client.util :as util]
+            [domkm.silk :as silk]))
 
-(enable-console-print!)
+(util/set-print!)
 
-(defn- goto-page-attr [page page-changed-fn]
+(defn- goto-page-attr [page page-changed-fn routes]
   "Answer a map with an onClick handler for the designated page,
-    which will update the current page and invoke page-changed-fn."
-  {:onClick (fn [_]
+    which will invoke page-changed-fn with the new page number."
+  {:onClick (fn [e]
               (page-changed-fn page)
-              false)})
+              (.preventDefault e))
+   :href (silk/depart routes :query {:page page})})
 
 (defn- page-li 
   "Create a li element for zero-based page-num containing an optional html-str. Attach the page-changed-fn."
-  ([page-changed-fn page-num class html-str]
+  ([page-changed-fn routes page-num class html-str]
      (dom/li #js {:className class}
              (if html-str
                (frontpage-client.util/html-dangerously
-                dom/a (goto-page-attr page-num page-changed-fn) html-str)
-               (dom/a (clj->js (goto-page-attr page-num page-changed-fn)) (inc page-num))))))
+                dom/a (goto-page-attr page-num page-changed-fn routes) html-str)
+               (dom/a (clj->js (goto-page-attr page-num page-changed-fn routes)) (inc page-num))))))
 
 (defn build-page-nums [nof-pages page]
   "Build a list of page-nums to display, where -1 indicates an ellipsis
@@ -39,7 +42,9 @@
      (for [page-num (sort numbers-seq)]
        (if (ellipsis page-num) -1 page-num)))))
 
-(defn pagination [app owner {:keys [page page-size nof-docs page-changed-fn]}]
+(def pagination-keys [:page :page-size :nof-docs :page-changed-fn])
+
+(defn pagination [{:keys [page page-size nof-docs page-changed-fn routes]} owner]
   "Build a zurb foundation pagination component which requires three options:
    page (the current, zero-based page number), nof-docs and page-size.
    Takes also a page-changed-fn key in its opts parameter which is called with a singe page parameter
@@ -47,7 +52,7 @@
   (om/component
    (apply dom/ul #js {:className "pagination"}
           (let [nof-pages (js/Math.ceil (/ nof-docs page-size))
-                page-li-part (partial page-li page-changed-fn)] ; fix the first arg to page-li
+                page-li-part (partial page-li page-changed-fn routes)] ; fix the first args to page-li
             (concat
              [(page-li-part 0 "arrow" "&laquo;")]
              (for [page-num (build-page-nums nof-pages page)]

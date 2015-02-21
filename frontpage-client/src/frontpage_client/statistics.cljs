@@ -149,7 +149,8 @@
 
 
 ; for figwheel, already done by secretary
-(mount-root "foobar" app-state)
+;; (mount-root "foobar" app-state)
+
 
 
 

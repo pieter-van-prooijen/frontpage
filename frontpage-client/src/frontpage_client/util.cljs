@@ -1,6 +1,7 @@
 (ns frontpage-client.util
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
+            [goog.dom]
             [cljs.core.async :refer [<! >! take! chan]]
             [jayq.core :refer [$]]
             [clojure.string])
@@ -51,18 +52,18 @@
   (-transact! [cursor korks f tag]
     (let [ks (if (sequential? korks) korks [korks])
           m @cursor]
-      (swap! cursor update-in ks f))))
-
-(defn possibly-deref [cursor]
-  (if (om/rendering?) cursor @cursor))
-
+      (swap! cursor update-in ks f)))
+  om/ICursor
+  (-path [_] [])
+  (-state [_] nil))
+ 
 (defn staged-async-exec [start-fn process-results-fn app stage-fn]
   "Start an async call with start-fn, processing the result received from chan into app with process-results-fn. 
    
    Allows for 'staged' modifications to the global app stage, e.g. changes which are needed for the input to start-fn but which should not be rendered before the function has completed and processed the results.
    stage-fn does these modifications into this staged app state."
   (let [chan (chan)
-        staged-map (assoc (possibly-deref app) :staged true)
+        staged-map (assoc @app :staged true) ; deref explictly to get the current value, not the last rendered
         staged-app (atom staged-map)] ; assumes stage-fn and start-fn always derefs this.
     (stage-fn staged-app)
     (start-fn staged-app chan)
@@ -71,15 +72,24 @@
         (stage-fn app) ; apply the staged modification to the real application state.
         (process-results-fn result app)))))
 
-;;
-;; Wrap the specified react component ("owner") into a reveal modal with the specified id
-;; Reveal elements are not managed by react, because they are manipulated by the reveal javascript which
-;; Reacts doesn't like.
-;; inner-owner is the the result of a om/build invocation.
 
 (defn- render-to-element-with-id [component id]
-  (let [root (. js/document (getElementById id))]
-    (js/React.renderComponent component root)))
+  (when-let [root (goog.dom/getElement id)]
+    (js/React.render component root)))
+
+(defn- clear-element-with-id [id]
+  (when-let [root (goog.dom/getElement id)]
+    (goog.dom.removeChildren root)))
+
+;;
+;; Wrap the specified react component ("owner") into a reveal modal
+;; with reveal-id. Use do-reveal to open/close the modal.
+;; See also "Portals" in React, which are similar.
+;;
+;; Reveal elements are not managed by React, because they are manipulated by
+;; the reveal javascript which React doesn't like.  inner-owner is the
+;; result of a om/build invocation (which is itself a proxy to the
+;; React class).
 
 (defn reveal-modal [app owner {:keys [reveal-id inner-owner] :as opts}]
   (reify
@@ -91,9 +101,17 @@
       (render-to-element-with-id inner-owner reveal-id))
     om/IDidUpdate
     (did-update [this prev-props prev-state]
-      (render-to-element-with-id inner-owner reveal-id))))
+      (render-to-element-with-id inner-owner reveal-id))
+    om/IWillUnmount
+    (will-unmount [this]
+      (clear-element-with-id reveal-id))))
 
-(defn do-reveal [id op]
-  "Do some operation on the specified reveal modal identified by id. Op can be \"open\" or \"close\""
-  (.foundation ($ (str "#" id)) "reveal" (name op)))
+(defn do-reveal [reveal-id op]
+  "Do some operation on the specified reveal modal identified by reveal-id. Op can be \"open\" or \"close\""
+  (.foundation ($ (str "#" reveal-id)) "reveal" (name op)))
 
+(defn set-print! []
+  "Redirect print output to the correct channel, depending on the browser / nashorn etc."
+  (if (exists? js/console)
+    (enable-console-print!)
+    (set-print-fn! js/print)))

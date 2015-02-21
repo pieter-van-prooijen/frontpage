@@ -1,5 +1,8 @@
 (ns piggieback-browser
-  (:require [clojure.browser.repl :as repl]))
+  (:require [clojure.browser.repl :as repl]
+            [weasel.repl]))
 
 ;; Can't proxy the repl, because the server part sets its url in the response
-(repl/connect "http://localhost:9000/repl")
+(comment (repl/connect "http://localhost:9000/repl"))
+(weasel.repl/connect "ws://localhost:9000")
+

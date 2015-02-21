@@ -2,6 +2,7 @@
   (:require [clojure.string]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
+            [sablono.core :as html :refer-macros [html]]
             [frontpage-client.facets :as facets]
             [frontpage-client.util :as util]
             [frontpage-client.solr :as solr]
@@ -11,18 +12,19 @@
 
 ;; Document component, allows in-place editing.
 
-(enable-console-print!)
+(util/set-print!)
  
 (defn metadata [doc owner]
   (om/component
    (let [author (:author doc)
          created-on (js/Date. (:created_on doc))] ; solr answers an iso 8601 date.
-     (apply dom/div #js {:className "metadata"}
-            (dom/a #js {:onClick (fn [_]
-                                   (facets/select-facet owner (name :created_on) created-on))}
-                   (frontpage-client.util/printable-date created-on))
-            (dom/a #js {:onClick (fn [_]
-                                   (facets/select-facet owner (name :author) author))} author)
+
+     (html [:div.metadata
+            [:a {:on-click (fn [_]
+                             (facets/select-facet owner (name :created_on) created-on))}
+             (frontpage-client.util/printable-date created-on)]
+            [:a {:on-click (fn [_]
+                             (facets/select-facet owner (name :created_on) created-on))}]
             (butlast
              (interleave      ; not interpose, can't reuse components.
               (for [category (:categories doc)]
@@ -30,21 +32,25 @@
                             :onClick (fn [_]
                                        (facets/select-facet owner (name :categories) category))}
                        category))
-              (repeatedly #(dom/span nil " - "))))))))
+              (repeatedly #(dom/span nil " - "))))]))))
+
+(defn edit-button [doc owner]
+  (om/component
+   (html 
+    [:div.row
+     [:div.large-12.columns
+      [:a.button.radius.inline.left {:on-click #(util/do-reveal (util/xml-id (:id @doc)) "open")} "Edit"]]])))
 
 (defn show-doc [doc owner]
   (om/component
    (if doc
      (dom/div #js {:className "row"}
               (dom/div #js {:className "large-12 columns"}
+                       (om/build edit-button doc)
                        (dom/h2 nil (:title doc))
                        (frontpage-client.util/html-dangerously dom/div nil (:body doc))
                        (om/build metadata doc)
-                       (dom/div #js {:className "row"}
-                                (dom/div #js {:className "large-12 columns"}
-                                         (dom/a #js {:className "radius button inline left"
-                                                     :onClick #(util/do-reveal (util/xml-id (:id @doc)) "open") }
-                                                "Edit")))))
+                       (om/build edit-button doc)))
      (dom/div nil "No current document"))))
 
 (defn handle-change [e owner key]
@@ -76,6 +82,10 @@
     om/IInitState
     (init-state [_]
       (select-keys doc [:title :body]))
+    om/IWillReceiveProps
+    (will-receive-props [_ next-doc]
+      (doseq [k [:title :body]]
+        (om/set-state! owner k (k next-doc))))
     om/IRenderState
     (render-state [_ {:keys [title body]}]
       (dom/form #js {}
@@ -87,8 +97,8 @@
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (dom/label #js {:className "" :htmlFor "body"} "Body:")
-                                  (dom/textarea #js {:rows "10" :name "body"
-                                                     :onChange (fn [e] (handle-change e owner :body))} body)))
+                                  (dom/textarea #js {:rows "10" :name "body" :value body
+                                                     :onChange (fn [e] (handle-change e owner :body))})))
                 (dom/div #js {:className "row"}
                          (dom/div #js {:className "large-12 columns"}
                                   (let [id (util/xml-id (:id doc))]
@@ -111,8 +121,9 @@
     om/IInitState
     (init-state [_]
       {:editing false})
-    om/IRenderState 
+    om/IRenderState
     (render-state [_ {:keys [editing]}]
+      ;;(js/alert (:body doc))
       (let [reveal-id (util/xml-id (:id doc))
             opts {:opts {:reveal-id reveal-id
                          :doc-changed-fn doc-changed-fn}}

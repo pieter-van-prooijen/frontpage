@@ -1,12 +1,13 @@
 (ns frontpage-client.solr
-  (:require [clojure.string]
+  (:require [frontpage-client.util :as util]
+            [clojure.string]
             [goog.json :as json]
             [goog.net.XhrIo :as xhrio]
             [goog.Uri]
             [cljs.core.async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :refer [go]])) 
 
-(enable-console-print!)
+(util/set-print!)
 
 ;; Retrieve/store frontpage document using the solr json api.
 ;; Also defines the document fields and facets of the boingboing blog posts.

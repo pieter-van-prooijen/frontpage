@@ -1,13 +1,13 @@
 (ns frontpage-client.facets
   (:require [frontpage-client.solr :as solr]
-            [frontpage-client.util]
+            [frontpage-client.util :as util]
             [frontpage-client.search]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [<! >! take! chan sub unsub]])
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]))
 
-(enable-console-print!)
+(util/set-print!)
 
 ;; Facet handlers, functions and components
 
@@ -62,18 +62,20 @@
 
 (defn- subscribe-to-facet-select [app owner]
   "Retrieve the facet-select channel and handle the incoming requests in the form [<facet-name> <value>]."
-  (let [c (chan)]
-    (om/set-state! owner :facet-select-chan c)
-    (sub (om/get-shared owner :publication) :facet-select c)
-    (go-loop [{:keys [facet-name value]} (<! c)]
-      (om/update! app :page 0)
+  (if-let [publication (om/get-shared owner :publication)] 
+    (let [c (chan)]
+      (om/set-state! owner :facet-select-chan c)
+      (sub publication :facet-select c)
+      (go-loop [{:keys [facet-name value]} (<! c)]
+        (om/update! app :page 0)
 
-      ;; Search uses staged invocation, don't render the selected facets until the search result is in.
-      (frontpage-client.search/search app (fn [app] (select-facet-from-chan app facet-name value))) 
-      (recur (<! c)))))
+        ;; Search uses staged invocation, don't render the selected facets until the search result is in.
+        (frontpage-client.search/search app (fn [app] (select-facet-from-chan app facet-name value))) 
+        (recur (<! c))))))
 
 (defn unsubscribe-to-facet-select [owner]
-  (unsub (om/get-shared owner :publication) :facet-select (om/get-state owner :facet-select-chan)))
+  (if-let [publication (om/get-shared owner :publication)]
+    (unsub publication :facet-select (om/get-state owner :facet-select-chan))))
 
 (defn select-facet [owner facet-name value]
   "Handler for other components to select a facet with the specified value."
@@ -155,6 +157,7 @@
                                    (let [new-page (f page)]
                                      (om/set-state! owner :page new-page)
                                      ;; FIXME: no other way to force an update on the inner value list?
+                                     ;; om/refresh! only works on valid owners ?
                                      (om/update! facets [facet-key :page] new-page))))
                 nof-pages (js/Math.ceil (/ (count (:counts facet)) (* page-size 2)))] ; counts are in pairs
             (dom/li nil
@@ -164,8 +167,8 @@
                     (when (> page 0)
                       (om/build page-facet facet {:opts {:up true
                                                          :on-click-fn (change-page-fn dec)}}))
-                    (om/build facet-value-list facets
-                                     {:opts {:facet-key facet-key :page page :page-size page-size}})
+                     (om/build facet-value-list facets
+                                                 {:opts {:facet-key facet-key :page page :page-size page-size}})
                     (when (< page (dec nof-pages))
                       (om/build page-facet facet {:opts {:up false
                                                          :on-click-fn (change-page-fn inc)}})))))))

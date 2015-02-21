@@ -18,7 +18,7 @@ The project contains the following modules:
 
 # Requirements
 
-Requirements: Oracle / OpenJdk Jdk 1.7, Leiningen 2, Solr 4.7+ and
+Requirements: Oracle / OpenJdk Jdk 1.8, Leiningen 2, Solr 4.7+ and
 the Tidy XML cleaner.
 
 # Installation

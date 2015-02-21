@@ -1,6 +1,7 @@
 (ns frontpage-client.search
   (:require [frontpage-client.solr :as solr]
-            [ om.core :as om :include-macros true]))
+            [om.core :as om :include-macros true]
+            [frontpage-client.util]))
 
 ;; Determine the current facet-fields to use in the query, using the parent /child hierarchy.
 (defn facet-fields [facets]
@@ -41,7 +42,7 @@
        (solr/search q facets page page-size facet-fields search-chan)))
   ([app search-chan]
      "Search with retrieving the parameters from the app state, runs async."
-     (let [{:keys [q page page-size facets]} @app]
+     (let [{:keys [q page page-size facets]} @app] ; explicitly deref to get the latest version
          (search-start q page page-size facets search-chan))))
 
 (defn search
