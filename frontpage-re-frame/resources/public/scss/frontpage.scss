@@ -1,0 +1,17 @@
+
+@import 'settings/settings';
+
+/* Foundation overrides */
+$button-radius: 5px !important;
+$pagination-radius: 5px !important;
+
+@import 'foundation';
+
+/* TODO: only include the necessary components ? */
+@include foundation-everything;
+
+/* General settings */
+em { color: red }
+
+.search-result-item { margin-bottom: 2 * $global-margin }
+.search-result-item .metadata { font-style: italic }

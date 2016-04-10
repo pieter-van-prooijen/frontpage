@@ -1,0 +1,4 @@
+(start-figwheel!)
+(cljs-repl)
+(js/alert "hallo)
+")
