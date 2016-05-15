@@ -24,7 +24,8 @@
                              (facets/select-facet owner (name :created_on) created-on))}
              (frontpage-client.util/printable-date created-on)]
             [:a {:on-click (fn [_]
-                             (facets/select-facet owner (name :created_on) created-on))}]
+                             (facets/select-facet owner (name :author) author))}
+             author]
             (butlast
              (interleave      ; not interpose, can't reuse components.
               (for [category (:categories doc)]

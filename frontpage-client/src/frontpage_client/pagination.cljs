@@ -32,6 +32,7 @@
         middle-page-nums (range (dec page) (+ page 2))
         end-page-nums (range (- nof-pages 2) nof-pages)
 
+        ;; set of pagenumbers which should show an ellipsis
         ;; Don't show the ellipsis if the middle page range is adjacent to or overlaps the start / end ranges
         ellipsis (apply disj #{2 (- nof-pages 3)} (concat start-page-nums middle-page-nums end-page-nums))
 

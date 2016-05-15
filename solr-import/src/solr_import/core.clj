@@ -28,6 +28,10 @@
   "Extract text from the html formatted string s"
   (.text (Jsoup/parse s )))
 
+;; Id's are used as keywords, so whitelist allowed characters
+(defn create-id [s]
+  (clojure.string/replace s #"[^A-ZAa-z0-9\-_]" "-"))
+
 (defn extract-post 
   "Answer a post map for a specified row in the xml"
   [row-loc]
@@ -46,7 +50,7 @@
             (assoc :body body)
             (assoc :extracted_body_text (extract-html-text body))
             (assoc :categories (if (seq categories) categories ["uncategorized"]))
-            (assoc :id (:permalink filtered)))))
+            (assoc :id (create-id (:permalink filtered))))))
 
 (defn extract-posts [input-stream]
   "Answer a lazy seq of posts reading from input-stream."
@@ -76,19 +80,5 @@
     (if (= first-arg "--delete")
       (delete-all)
       (load-posts first-arg))))
-
-(defn collapse-same
-  ([coll]
-     "Answer a lazy seq with ranges of same value items in coll collapsed into one.
-      (collapse-same [1 1 2 3 3 1 1]) => (1 2 3 1).
-      Allows nil value items in the seq."
-     (if (seq coll)
-       (collapse-same coll (first coll))
-       (empty coll)))
-  ([coll v]
-     (lazy-seq
-      (if (and (seq coll) (= (first coll) v))
-        (collapse-same (rest coll) v)
-        (cons v (collapse-same coll))))))
 
 

@@ -11,36 +11,35 @@
 ;;   > (cljs-repl)
 ;;
 ;; In resources/public/scss:
-;;   $ gulp sass:autowatch to automatically recompile/reload foundation
+;;   $ gulp sass:watch to automatically recompile/reload foundation
 
 (defproject frontpage-re-frame "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.7.228"]
+                 [org.clojure/clojurescript "1.8.51"]
                  [reagent "0.5.1"]
-                 [re-frame "0.6.0"]
+                 [re-frame "0.7.0"]
                  [secretary "1.2.3"]
                  [cljs-ajax "0.5.4"]
-                 [prismatic/schema "1.0.5"]
-                 [camel-snake-kebab "0.3.2"]
+                 [prismatic/schema "1.1.1"]
+                 [camel-snake-kebab "0.4.0"]
                  [jayq "2.5.4"]]
 
   :min-lein-version "2.5.3"
 
 
   :plugins [[lein-cljsbuild "1.1.1"]
-            [lein-figwheel "0.5.0-6"]
+            [lein-figwheel "0.5.3-1" :exclusions [org.clojure/clojure org.clojure/tools.reader clj-time joda-time]]
             [lein-servlet "0.4.1"]
-            [lein-doo "0.1.6"]]
+            [lein-doo "0.1.6" :exclusions [org.clojure/tools.reader]]]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
                                     "test/js"]
 
-  
   :source-paths ["src/clj"]
   
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
                                   ;;[org.clojure/tools.nrepl "0.2.12"]
-                                  [figwheel-sidecar "0.5.0-6"]]
+                                  [figwheel-sidecar "0.5.3-1"]]
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
 

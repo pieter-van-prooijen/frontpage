@@ -49,7 +49,7 @@ $ lein run <path-to-bbpostdump-tidy.xml
 ```
 
 This can take a while (10 minutes with an SSD), see the output of the _run-solr.sh` script to check
-if documents are added correctly.
+if the documents are added correctly.
 
 Inspect the resulting collection/core (named "frontpage") using the Solr admin interface
 at [http://localhost:8983/solr]

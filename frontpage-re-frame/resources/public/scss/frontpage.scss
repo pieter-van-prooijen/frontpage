@@ -15,3 +15,8 @@ em { color: red }
 
 .search-result-item { margin-bottom: 2 * $global-margin }
 .search-result-item .metadata { font-style: italic }
+
+.search-result-count { margin-bottom: $global-margin }
+
+/* Document settings */
+.document img { margin: $global-margin }

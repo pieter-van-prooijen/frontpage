@@ -63,6 +63,7 @@
 (def ^:dynamic *nashorn-env* (atom nil))
 
 (defn create-nashorn-env [debug]
+  (env/with-compiler-env (env/default-compiler-env)
   (let [env (nashorn/repl-env :debug debug
                               :cache-analysis true
                               :source-map true)
@@ -75,7 +76,7 @@
     (evaluate-form env '(js/goog.require "frontpage_client.stubs"))
     (evaluate-form env '(js/goog.require "frontpage_client.xml_http_request"))
     (evaluate-form env '(js/goog.require "frontpage_client.core"))
-    env))
+    env)))
 
 
 (defn nashorn-handler [request]

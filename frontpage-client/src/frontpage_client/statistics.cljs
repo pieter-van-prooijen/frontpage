@@ -2,7 +2,6 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [sablono.core :as html :refer-macros [html]]
-            [datascript :as d]
             [datascript.core :as dc]
             [frontpage-client.solr :as solr]
             [cljs.core.async :refer [<! >! chan put!]])
@@ -21,11 +20,11 @@
 
 (defn create-conn []
   (let [schema {:categories {:db/cardinality :db.cardinality/many }}]
-    (d/create-conn schema)))
+    (dc/create-conn schema)))
 
 (defn add-to-ds [conn doc]
   "Register the document"
-  (d/transact! conn
+  (dc/transact! conn
                [(assoc (select-keys doc [:author :created-on :categories]) :db/id -1)]))
 
 (defn add-from-solr 
@@ -51,11 +50,11 @@
 
 (defn list-values [conn attr]
   "List all values which have the attribute."
-  (d/q '[:find ?v :in $ ?attr :where [_ ?attr ?v]] @conn attr))
+  (dc/q '[:find ?v :in $ ?attr :where [_ ?attr ?v]] @conn attr))
 
 (defn count-docs [conn mode]
   "Count the number of entries which have the specified mode."
-  (let [result (d/q '[:find (count ?e) :in $ ?m :where [?e :mode ?m]] @conn mode)]
+  (let [result (dc/q '[:find (count ?e) :in $ ?m :where [?e :mode ?m]] @conn mode)]
     (if (seq result) (first (first result)) 0)))
 
 (defn doc-ids [docs]
@@ -83,14 +82,14 @@
 
 (defmethod get-data :category-count [_ conn]
   (let [ds-query '[:find ?category (count ?doc) :where [?doc :categories ?category]]
-        data (->> (d/q ds-query @conn)
+        data (->> (dc/q ds-query @conn)
                   (map (fn [[category count]] {:category category :count count}))
                   (remove #(= (:category %1) "uncategorized")))]
     [:category :count data]))
 
 (defmethod get-data :author-count [_ conn]
   (let [ds-query '[:find ?author (count ?doc) :where [?doc :author ?author]]
-        data (->> (d/q ds-query @conn)
+        data (->> (dc/q ds-query @conn)
                   (map (fn [[author count]] {:author author :count count})))]
     [:author :count data]))
 

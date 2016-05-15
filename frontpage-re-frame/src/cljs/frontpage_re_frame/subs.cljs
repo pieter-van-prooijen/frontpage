@@ -8,6 +8,8 @@
    (reaction (:search-result @db))))
 
 (re-frame/register-sub
+ :facet-result)
+(re-frame/register-sub
  :search-params
  (fn [db _]
    (reaction (:search-params @db))))
@@ -18,3 +20,8 @@
    (let [document-result (reaction (:document-result @db))]
      (reaction (when (= (:id @document-result) id)
                  @document-result)))))
+
+(re-frame/register-sub
+ :debug
+ (fn [db _]
+   (reaction (:debug @db))))

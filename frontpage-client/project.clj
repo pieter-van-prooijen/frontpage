@@ -10,46 +10,58 @@
   :description "Browse / Edit Solr documents in React/Om"
   :url "https://github.com/pieter-van-prooijen/frontpage"
 
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
 
                  ;; Clojure deps
                  [http-kit "2.1.19"]
-                 [ring "1.3.2"]
+                 [ring "1.4.0"]
 
                  ;; Clojurescript deps
-                 [org.clojure/clojurescript "0.0-2856"]
+                 [org.clojure/clojurescript "1.7.145"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [org.omcljs/om "0.8.8"]
-                 [sablono "0.3.4"]
-                 [secretary "1.2.1"]
-                 [datascript "0.9.0"]
+                 [org.omcljs/om "0.9.0"]
+                 [sablono "0.3.6"]
+                 [secretary "1.2.3"]
+                 [datascript "0.13.2"]
                  [jayq "2.5.4"]
                  [com.domkm/silk "0.0.4" :exclusions [org.clojure/clojure]]
 
-                 ;; Development dependencies
-                 [weasel "0.6.0"]
-                 [com.cemerick/piggieback "0.1.5"]
-                 [figwheel "0.2.0-SNAPSHOT"]]
+                 ;; Java deps
+                 [javax.websocket/javax.websocket-api "1.1"]
+                 [org.glassfish.tyrus.bundles/tyrus-standalone-client-jdk "1.10"]]
 
-  :plugins [[lein-cljsbuild "1.0.3"]
+  :plugins [[lein-cljsbuild "1.1.0"]
             [lein-servlet "0.4.0"]
             [com.cemerick/clojurescript.test "0.3.1"]
-            [lein-figwheel "0.2.0-SNAPSHOT"]]
+            [lein-figwheel "0.4.1"]]
 
   ;; Invoke via "with-profile debug,default"
-  :profiles {:debug {:jvm-opts ["-Xdebug" "-Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=n"]}}
+  :profiles {:debug {:jvm-opts ["-Xdebug" "-Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=n"]}
+             :dev {:dependencies [[weasel "0.7.0"]
+                                  [com.cemerick/piggieback "0.2.1"]
+                                  [figwheel "0.4.1"]]
+                   :figwheel {:http-server-root "public"
+                              ;; invoke (figwheel-sidecar.repl/cljs-repl) to piggieback nrepl onto the figwheel repl
+                              ;; normal repl must be disabled for this to work (adjust README in figwheel or use nrepl startup ?)
+                              :repl false
+                              :nrepl-port 7888
+                              :nrepl-middleware ["cider.nrepl/cider-middleware"
+                                                 "refactor-nrepl.middleware/wrap-refactor"
+                                                 "cemerick.piggieback/wrap-cljs-repl"]} }}
   
   :source-paths ["src" "src-clj"]
 
   :cljsbuild { 
-    :builds [{:id "dev"
-              :source-paths ["src" "test"]
-              :compiler {
-                :output-to "resources/public/compiled/frontpage_client.js"
-                :output-dir "resources/public/compiled"
-                :optimizations :none
-                :cache-analysis true         
-                :source-map true}}]}
+              :builds [{:id "dev"
+                        :source-paths ["src" "test"]
+                        :figwheel {}
+                        :compiler {:asset-path ""
+                                   :output-to "resources/public/compiled/frontpage_client.js"
+                                   :output-dir "resources/public/compiled"
+                                   :optimizations :none
+                                   :cache-analysis true         
+                                   :pretty-print true         
+                                   :source-map true}}]}
 
   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
 
@@ -68,5 +80,4 @@
                                                 {:proxyTo "http://localhost:8983/solr"}]}
                                :public ""}}}
 
-  :figwheel {
-   :http-server-root "public" });; this will be in resources/
+);; this will be in resources/

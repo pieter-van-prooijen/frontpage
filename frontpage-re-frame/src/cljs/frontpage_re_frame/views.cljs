@@ -1,5 +1,7 @@
 (ns frontpage-re-frame.views
-  (:require [re-frame.core :as re-frame]
+  (:require [cljs.pprint :as pprint]
+            [re-frame.core :as re-frame]
+            [re-frame.db]
             [reagent.core :as reagent]
             [goog.i18n.DateTimeFormat]
             [goog.dom]
@@ -8,8 +10,19 @@
 
 (declare search-result-item self-opening-reveal)
 
-
 (def printable-date-time-format (goog.i18n.DateTimeFormat. "yyyy-MM-dd hh:mm"))
+
+;; Appstate debugger
+(defn view-app-state []
+  (let [debug (re-frame/subscribe [:debug])]
+    (fn []
+      [:div.row
+       [:div.small-12.column
+        [:a {:on-click (fn [e]
+                         (.preventDefault e)
+                         (re-frame/dispatch [:toggle-debug]))} (if @debug "hide app-state" "show app-state")]
+        (when @debug
+          [:pre (with-out-str (pprint/pprint @re-frame.db/app-db))])]])))
 
 (defn search-box []
   [:form.row {:on-submit (fn [e] (.preventDefault e)
@@ -25,8 +38,7 @@
 (defn build-page-nums [nof-pages page]
   "Build a list of page-nums to display, where -1 indicates an ellipsis
    List is split in three groups of three page numbers, start, middle-page (current) and end,
-   with an optional ellipsis separating the parts if they are far apart.
-  "
+   with an optional ellipsis separating the parts if they are far apart."
   (let [start-page-nums (range 0 2)
         middle-page-nums (range (dec page) (+ page 2))
         end-page-nums (range (- nof-pages 2) nof-pages)
@@ -78,24 +90,45 @@
               [:a (on-click-attr (inc page)) "Next"]]))])))) 
  
 
+(defn author-list [facets]
+  (let [authors (:author facets)]
+    [:div
+     [:h4 "Authors"]
+     [:ul
+      (for [[author nof-docs] authors]
+        [:li {:key author}
+         [:a {:on-click (fn [e]
+                          (.preventDefault e)
+                          (re-frame/dispatch
+                           [:search-with-field [:author (if (= (count authors) 1) nil author)]]))}
+          author]
+         [:span " (" nof-docs ")"]])]]))
+
+
+;; Multi method which dispatches on the type of result of the vector under :search-result
 (defmulti search-result first)
 
-(defmethod search-result :search-items [[_ items nof-found]]
-  [:div
-   [:div.row
-    [:div.small-12.column
-     [pagination]]]
-   [:div.row
-    [:div.small-12.column
-     (for [item items]
-       ;; search-result-item is a 2n form component, use metadata on the component to set the key
-       ^{:key (:id item)} [search-result-item item])]]
-   [:div.row
-    [:div.small-12.column
-     [pagination]]]
-   [:div.row
-    [:div.small-12.column
-     [:b (str nof-found " items found.")]]]])
+(defmethod search-result :search-items [[_ items nof-found facets]]
+  [:div.row
+   [:div.small-3.column
+    [author-list facets]]
+   [:div.small-9.column
+    [:div.row.search-result-count
+     [:div.small-12.column
+      [:b (str nof-found (if (= nof-found 1) " item" " items") " found.")]]]
+    [:div.row
+     [:div.small-12.column
+      [pagination]]]
+    [:div.row
+     [:div.small-12.column
+      (for [item items]
+        ;; search-result-item is a 2n form component, use metadata on the component to set the key
+        ^{:key (:id item)} [search-result-item item])]]
+    [:div.row
+     [:div.small-12.column
+      [pagination]]]
+    [:div.row
+     [:div.small-12.column]]]])
 
 (defn search-result-item [item]
   (let [id (:id item)
@@ -115,7 +148,7 @@
              reveal-id
              (fn []
                (println "Rendering document...")
-               [:div
+               [:div.document
                 [:div {:dangerouslySetInnerHTML {:__html (:body @doc)}}]
                 [:span.button {:on-click (fn [_] (.foundation ($ (str "#" reveal-id)) "close"))} "Close"]])
              (fn [e]
@@ -148,7 +181,7 @@
      {:reagent-render (fn [id _ _]
                         ;; this piece of the dom is moved by Foundation, don't let react see it
                         (println "Rendering reveal...")
-                        [:div {:dangerouslySetInnerHTML {:__html (str "<div id='" id "' class='reveal' data-reveal></div>")}}])
+                        [:div {:dangerouslySetInnerHTML {:__html (str "<div id='" id "' class='small reveal' data-reveal></div>")}}])
       :component-did-mount open
       :component-will-unmount close})))
 
@@ -157,14 +190,15 @@
    [:div.small-12.column
     [:div.callout.alert error]]])
 
-(defmethod search-result :search-loading [[_ _]]
+(defmethod search-result :loading [[_ _]]
   [:div.row
    [:div.small-12.column
     [:div.callout.primary "Loading..."]]])
 
 (defmethod search-result :default [_]
   [:div.row
-   [:div.small-12.column "no results found"]])
+   [:div.small-3.column]
+   [:div.small-9.column]])
 
 (def search-param
   {:page 0 :nof-pages 2 :page-size 10})
@@ -173,10 +207,16 @@
 (defn main-panel []
   (let [result (re-frame/subscribe [:search-result])]
     (fn []
-      [:div.row
-       [:div.small-12.column
-        [:h1 "Frontpage (re-frame)"]
-        [search-box]
-        [search-result @result]]])))
+      [:div
+       [view-app-state]
+       [:div.row
+        [:div.small-3.column]
+        [:div.small-9.column
+         [:h1 "Re-frame Solr"]]]
+       [:div.row
+        [:div.small-3.column]
+        [:div.small-9.column
+         [search-box]]]
+       [search-result @result]])))
 
 

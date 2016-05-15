@@ -151,7 +151,7 @@
         (render-state [_ {:keys [page]}]
           (let [facet (facet-key facets)
                 facet-name (:name facet)
-                facet-title (.t js/i18n (str "facet-name." facet-name))
+                facet-title (.t js/i18n (str "facet-name." facet-name) {:defaultValue facet-name})
                 change-page-fn (fn [f]
                                  (fn [_]
                                    (let [new-page (f page)]
@@ -178,16 +178,18 @@
   (reify
     om/IWillMount
     (will-mount [this]
-      (.init js/i18n)
+      ;; FIXME Loading resource is async, i18n functions don't work until loaded.
+      (.init js/i18n #js {:resGetPath "/locales/__lng__/__ns__.json"})
       (subscribe-to-facet-select app owner))
     om/IWillUnmount
     (will-unmount [this]
       (unsubscribe-to-facet-select owner))
     om/IRender
     (render [this]
-      (let [facets (:facets app)]
+      (let [facets (:facets app)
+            ordered-facets  (sort-by first facets)]
         (apply dom/ul #js {:className "side-nav"}
-               (for [[facet-key _] facets]
+               (for [[facet-key _] ordered-facets]
                  (when-not (child-facet? facet-key)
                    (om/build facet-list facets {:opts {:facet-key facet-key :page-size 5}}))))))))
 

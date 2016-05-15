@@ -7,11 +7,13 @@
   {:page s/Num
    :page-size s/Num
    :nof-pages s/Num
-   :text s/Str})
+   :text s/Str
+   (s/optional-key :fields) {s/Keyword s/Str}
+})
 
-;; middleware factory for validating parts of the db after the main handler has run
-;; Use as [(validate keys schema-or-validator] in the 2nd argument of the 3-arity register-handler function
 (defn validate [keys schema-or-validator]
+  "Handler middleware factory for validating parts of the db after the main handler has run
+   Use as [(validate keys schema-or-validator] in the 2nd argument of the 3-arity register-handler function"
   (fn [handler]
     (fn [db v]
       (let [new-db (handler db v)]

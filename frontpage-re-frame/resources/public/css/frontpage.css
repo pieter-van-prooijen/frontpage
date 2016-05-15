@@ -3469,4 +3469,11 @@ em {
 .search-result-item .metadata {
   font-style: italic; }
 
+.search-result-count {
+  margin-bottom: 1rem; }
+
+/* Document settings */
+.document img {
+  margin: 1rem; }
+
 /*# sourceMappingURL=frontpage.css.map */

@@ -111,13 +111,13 @@
                               :init-state {:current (= 1 (:nof-docs app))}})))]]
              (om/build frontpage-client.pagination/pagination pagination-data)]]))))
 
-(defn root [{:keys [q] :as app} owner {render-state :render-state}]
+(defn root [{:keys [q rendered-from-nashorn] :as app} owner {render-state :render-state}]
   "Setup the root react component"
   (reify
     om/IWillMount
     ; Initial render, use the query found in the current global state
     (will-mount [_]
-      (when-not (clojure.string/blank? q)
+      (when-not (or rendered-from-nashorn (clojure.string/blank? q))
         (frontpage-client.search/search app)))
     om/IRender
     (render [_]
@@ -125,7 +125,7 @@
              [:div.row
               [:div.large-3.columns.hide]
               [:div.large-9.columns
-               [:h1 "Frontpage"]]]
+               [:h1 (str "Frontpage")]]]
              [:div.row
               [:div.large-3.columns (om/build frontpage-client.facets/facets-list app)]
               [:div.large-9.columns 
@@ -152,10 +152,13 @@
 ;; Optionally read from the initial-app-state EDN base 64 encoded variable.
 (defonce app-state (atom 
                     (if (exists? js/initial-app-state)
-                      (cljs.reader/read-string (b64/decodeString js/initial-app-state))
+                      (let [app-str (b64/decodeString js/initial-app-state)]
+                        ;; FIXME: keywords which contain a "//" are replaced with a single "/"
+                        ;; (interpreted as a namespaced keyword ?
+                        (cljs.reader/read-string app-str))
                       {:docs [] :highlighting {} :q "" :page 0 :page-size 10 :nof-docs 0
-                       :facets {} :nashorn false})))
- 
+                       :facets {}})))
+
 ;; All app state keys settable via the url and their silk matchers, wrappers for silk/int and bool.
 (defn- silk-string [k default]
   (silk/? k default))
@@ -201,6 +204,7 @@
   ;; Simulate some om/root functionality, om/setup is really a private function, cursors won't work otherwise.
   (om/setup app-state (gensym) nil)
   (set-state-from-routes url)
+  (om/update! app-state :rendered-from-nashorn true)
   ;; Simulate IWillMount
   (when-not (clojure.string/blank? (:q @app-state))
         (frontpage-client.search/search app-state))

@@ -1,1 +1,10 @@
 data/
+*~
+resources/public/compiled 
+node_modules
+bower_components
+resources/public/vendor
+.lein-repl-history
+.nrepl-port
+resources/public/css
+
