@@ -30,6 +30,7 @@
 (re-frame/register-handler :search search)
 
 (defn get-document [db [_ id]]
+  "Retrieve a single full document from Solr."
   (GET "http://localhost:3000/solr/frontpage/select"
        {:format :json
         :response-format :json
@@ -121,9 +122,11 @@
  (fn [db _]
    (dissoc db :document-result)))
 
+(def mem-to-kebab-case-keyword (memoize csk/->kebab-case-keyword))
+
 (defn to-kebab-case-keyword [x]
   (letfn [(convert-kv [[k v]]
-            (if (keyword? k) [(csk/->kebab-case-keyword k) v] [k v]))
+            (if (keyword? k) [(mem-to-kebab-case-keyword k) v] [k v]))
           (convert-map [x]
             (if (map? x) (into {} (map convert-kv x)) x))]
     (walk/postwalk convert-map x)))

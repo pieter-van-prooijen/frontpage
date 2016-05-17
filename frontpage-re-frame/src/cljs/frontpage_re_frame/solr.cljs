@@ -17,9 +17,9 @@
 (def SolrFacetPair
   [(s/one s/Str "facet") (s/one s/Int 1)])
 
-;; A facet should have at least one result
+;; A facet could have zero results.
 (def SolrFacetResult
-  [(s/one SolrFacetPair ["facet" 1]) SolrFacetPair])
+  [SolrFacetPair])
 
 (def SolrFacetFields
   "a schema for a range of facets"

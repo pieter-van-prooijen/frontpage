@@ -17,6 +17,7 @@
 (re-frame/register-sub
  :document-result
  (fn [db [_ id]]
+   "Answer the full document for id or nil, as the current document under :document-result"
    (let [document-result (reaction (:document-result @db))]
      (reaction (when (= (:id @document-result) id)
                  @document-result)))))

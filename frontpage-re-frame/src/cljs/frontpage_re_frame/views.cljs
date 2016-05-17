@@ -115,7 +115,7 @@
    [:div.small-9.column
     [:div.row.search-result-count
      [:div.small-12.column
-      [:b (str nof-found (if (= nof-found 1) " item" " items") " found.")]]]
+      [:b (str nof-found (if (= nof-found 1) " item" " items") " found." )]]]
     [:div.row
      [:div.small-12.column
       [pagination]]]
@@ -137,24 +137,24 @@
       [:div {:class "search-result-item"}
        [:h3
         [:a {:href "#" :on-click (fn [e]
-                                   (re-frame/dispatch [:get-document (:id item)])
-                                   (.preventDefault e)) }
+                                   (.preventDefault e)
+                                   (re-frame/dispatch [:get-document (:id item)])) }
          (:title  item)]]
 
+       ;; Render the full document in a reveal.
        [:div 
         (when @doc
           (let [reveal-id (str "reveal-" id)]
             [self-opening-reveal
              reveal-id
              (fn []
-               (println "Rendering document...")
                [:div.document
                 [:div {:dangerouslySetInnerHTML {:__html (:body @doc)}}]
                 [:span.button {:on-click (fn [_] (.foundation ($ (str "#" reveal-id)) "close"))} "Close"]])
              (fn [e]
                (re-frame/dispatch [:remove-document-result]))]))]
        
-       [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}]
+       [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}] ;; render the Solr highlight tags
        
        [:div {:class "metadata"}
         [:span (:author item)]
@@ -162,28 +162,6 @@
         [:span (string/join ", " (:categories item))]
         " | "
         [:span (.format printable-date-time-format (:created-on item))]]])))
-
-;; render-fn should render the content of the reveal
-;; closed-fn should trigger an event which removes the reveal from the virtual dom so
-;; it is in sync with the real dom after closing the reveal.
-(defn self-opening-reveal [id render-fn closed-fn]
-  (letfn [(open []
-            (-> ($ (str "#" id))
-                (.foundation) ; initialize any plugins on the new html
-                (.foundation "open")
-                (.on "closed.zf.reveal" closed-fn))
-            (println "Opening..." (goog.dom/$ id))
-            (reagent/render [render-fn]  (goog.dom/$ id)))
-          (close []
-            (println "Closing..")
-            (goog.dom/removeNode (goog.dom/getElement id)))] ; force an update of the DOM
-    (reagent/create-class
-     {:reagent-render (fn [id _ _]
-                        ;; this piece of the dom is moved by Foundation, don't let react see it
-                        (println "Rendering reveal...")
-                        [:div {:dangerouslySetInnerHTML {:__html (str "<div id='" id "' class='small reveal' data-reveal></div>")}}])
-      :component-did-mount open
-      :component-will-unmount close})))
 
 (defmethod search-result :search-error [[_ error]]
   [:div.row
@@ -212,11 +190,33 @@
        [:div.row
         [:div.small-3.column]
         [:div.small-9.column
-         [:h1 "Re-frame Solr"]]]
+         [:h1 "Re-frame + Solr"]]]
        [:div.row
         [:div.small-3.column]
         [:div.small-9.column
          [search-box]]]
        [search-result @result]])))
 
+
+;; Foundation specific components
+
+;; render-fn should render the content of the reveal
+;; closed-fn should trigger an event which removes the reveal from the virtual dom so
+;; it is in sync with the real dom after closing the reveal.
+;; FIXME: doesn't work with animations ?
+(defn self-opening-reveal [id render-fn closed-fn]
+  (letfn [(open []
+            (-> ($ (str "#" id))
+                (.foundation) ; initialize any plugins on the new html
+                (.foundation "open")
+                (.on "closed.zf.reveal" closed-fn))
+            (reagent/render [render-fn]  (goog.dom/$ id)))
+          (close []
+            (goog.dom/removeNode (goog.dom/getElement id)))] ; force an update of the DOM
+    (reagent/create-class
+     {:reagent-render (fn [id _ _]
+                        ;; this piece of the dom is moved by Foundation, don't let react see it
+                        [:div {:dangerouslySetInnerHTML {:__html (str "<div id='" id "' class='small reveal' data-reveal></div>")}}])
+      :component-did-mount open
+      :component-will-unmount close})))
 

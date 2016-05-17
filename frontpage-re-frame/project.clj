@@ -46,7 +46,7 @@
   :figwheel {:css-dirs ["resources/public/css"]}
   
   :cljsbuild {:builds [{:id "dev"
-                        :source-paths ["src/cljs" "test/cljs"]
+                        :source-paths ["src/cljs" "test/cljs" "dev"]
                         :figwheel {:on-jsload "frontpage-re-frame.core/mount-root"}
                         :compiler {:main frontpage-re-frame.core
                                    :output-to "resources/public/js/compiled/app.js"
@@ -56,7 +56,7 @@
                                    :source-map-timestamp true}}
                        
                        {:id "test"
-                        :source-paths ["src/cljs" "test/cljs"]
+                        :source-paths ["src/cljs" "test/cljs" "dev"]
                         :compiler {:output-to "resources/public/js/compiled/test.js"
                                    :main frontpage-re-frame.runner
                                    :optimizations :none}}
