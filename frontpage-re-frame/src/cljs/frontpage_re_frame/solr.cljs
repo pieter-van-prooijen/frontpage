@@ -14,16 +14,6 @@
    (s/optional-key :body) s/Str ; search results don't have a body
    :categories (s/pred not-empty #{s/Str})})
 
-(def SolrFacetPair
-  [(s/one s/Str "facet") (s/one s/Int 1)])
-
-;; A facet could have zero results.
-(def SolrFacetResult
-  [SolrFacetPair])
-
-(def SolrFacetFields
-  "a schema for a range of facets"
-  {:author SolrFacetResult})
 
 (defn transform-doc [doc]
   (-> doc
@@ -43,10 +33,35 @@
 
 (def result-fields [:id :title :author :categories :created-on])
 (def document-fields [:id :title :body :author :categories :created-on])
-(def facet-document-fields [:author :categories :created-on-year])
+
+(def facets
+  [{:field :author
+    :title "Authors"}
+   {:field :categories
+    :title "Categories"
+    :multi-valued true}
+   {:field :created-on-year
+    :title "Years"}])
+
+(def facet-document-fields (map :field facets))
+(def SolrFacetPair
+  [(s/one s/Str "facet") (s/one s/Int 1)])
+
+;; A facet could have zero results.
+(def SolrFacetResult
+  [SolrFacetPair])
+
+(def SolrFacetFields
+  "a schema for a range of facets"
+  {(s/pred (apply hash-set facet-document-fields)) SolrFacetResult})
 
 (defn create-field-param [fields]
   (string/join " " (map csk/->snake_case_string fields)))
+
+(defn set-field-parameter [fields field value multi-valued]
+  "Set the field parameter in the fields map, adding / removing if the field is multi-valued.
+   Returns the new value of the fields map"
+  )
 
 (defn search-params [{:keys [text page page-size fields]}]
   (let [params {:q text
@@ -58,9 +73,11 @@
                 :hl.fragsize 300
                 :fl (create-field-param result-fields)
                 :facet true
-                :facet.field "author" ;; FIXME, cljs-ajax translates vector args into f[0], f[1] etc.
+                :facet.field (map csk/->snake_case_string facet-document-fields)
                 :facet.mincount 1}]
-    (if fields
-      (let [[field value] (first fields)]  ;; no multiple facet fields for now
-        (assoc params :fq (str (csk/->snake_case_string field) ":\"" value "\"")))
-      params)))
+    (assoc params :fq
+           (->> fields
+                (map (fn [[field values]]
+                       (map (fn [value]
+                              (str (csk/->snake_case_string field) ":\"" value "\"")))))
+                (concat)))))
