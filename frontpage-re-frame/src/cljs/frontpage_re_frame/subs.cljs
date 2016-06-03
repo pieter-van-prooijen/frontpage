@@ -8,8 +8,6 @@
    (reaction (:search-result @db))))
 
 (re-frame/register-sub
- :facet-result)
-(re-frame/register-sub
  :search-params
  (fn [db _]
    (reaction (:search-params @db))))

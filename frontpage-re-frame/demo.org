@@ -1,0 +1,172 @@
+* TODO
+- showing the current database in the repl with pp
+- show error handling, force a Solr error
+- optimized build
+
+- jacked-in session processes are not destroyed ("error in process filter")
+
+* Layout Talk
+
+** Keys and repl
+Terminal: enlarge: Ctrl-Shift-+ , Ctrl-0 to reset
+Emacs: C-x C-+ (or -, 0)
+Firefox C-+ (or -, 0), F11 to toggle fullscreen mode)
+
+To pretty-print values in the figwheel repl:
+(with-out-str (cljs.pprint/pprint ...)) or use user/pp
+
+
+
+Open tabs: presentation, app, solr-admin
+Emacs buffers: db, subs, views, handlers
+
+Emacs html mode: close-tag: C-c /
+
+
+** Why
+Audience experience ?
+
+explore Re-frame using existing Om (classic) app
+
+Problems: 
++ cursors are complex and strictly hierarchical, data hierarchy <> component hierarchy
++ verbose, each component must implement a React protocol
++ communication between components was needed via async channels, but we want a simpler approach
+
+So, try re-frame:
+
+** First, the App
+search / document modal / results / facets / pagination
+Used boing-boing dataset of 63k posts (in sort-of XML), back to the late dawn of the internet.
+Solr served via a reverse proxy, to allow POST and to prevent CORS problems.
+
+(demo)
+
+** Document database
+schema, Solr json interface (browser), example xml
+Why Solr: previous experience 
+
+** Re-frame
+
+one way circular flow of values and events (see also Redux pattern, three talks at Codemotion).
+
+(picture)
+
+handled through a few standard functions (subscribe to data / render data by deref-ing (r)atom / dispatch events
+  to change data)
+
+inspirations: elm, frp, Martin Klepmann (refer to talk and Confluent book)
+
+Excellent introduction and Wiki
+
+** Standard App structure
+
+core.cljs, 
+index.html
+re-frame files (would probably be namespaces in a bigger app)
+
+*** db (db.cljs)
+Contains current search params (query, page, etc.)
+almost untranslated from the solr schema (except for the kebab-casing)
+contains 
+{:search-params {:text "foo" :page 3 :page-size 10 :nof-found 123}
+ :search-result {:docs [{:title ..}]}
+ :document-result {single document with html}
+ ...}
+
+(see app, db toggle)
+
+*** reactions / subscriptions
+Subscriptions filter out parts of the database and make them available as a derefable ratom (subs.cljs)
+When the global db changes, some of the subscriptions might change
+reactions can be changed and can contain computation / conditions (see :document-result)
+uses identical? to quickly detect changes for immutable data structures
+
+(register-sub id fn)
+(subscribe id) answers a subscription which can be derefed in a render function.
+
+*** components
+Uses standard reagent:
+- React components are defined by a render function:
+  has react props as its arguments and/or a number of subscriptions in its setup (views/main-panel) and
+  answers a hiccup vector
+
+  (defn form-1 [prop1 ...]
+    [:div ...])
+
+  (defn form-2 [prop1 ...]
+    (let [sub (re-frame/subscribe :some-subscription)]
+      (fn [prop1 ...]  ;; Don't forget this !
+        [:div ...])))
+
+  form-3 allows the full React lifecycle protocol (see self-opening-reveal).
+
+
+Only components which deref a changed value will be re-rendered. (optimisation w.r.t. react)
+
+Reagent renders the hiccup to a React virtual dom (picture) and invokes the react render to a virtual dom (if the
+update is needed.
+Re-render is determined by: 
+- changed props
+- changed state of any de-refed atoms (which are detected when running the render function by rebinding deref)
+
+
+**** implementation details
+subscribe must be outside of the render function, otherwise it will be triggered by each change to the db, (because
+subscribe itself derefs the global db)
+
+reagent captures every deref-ed ratom in a render by rebinding deref and doing a dummy run, possible because render
+functions are (sort-of?) pure and fast (only use data from the db and output a vector)
+Arguments to a render function are react props (read-only)
+react state is not really used, but possible
+
+*** event dispatching / handling (handlers.cljs)
+[picture]
+Can be dispatched from everywhere but mostly from dom event handlers (on-click) or callbacks (on-success / on
+error in async interfaces). (views/on-click-attr and handlers/search)
+
+Each handler must answer the new state of the db (if applicable) and can dispatch new events. Re-frame will update
+the global db accordingly
+Must be pure and are executed in-order, one handler must be finished before the next one is run, so each handler
+sees a consistent db. Should only be invoked by dispatch so this order is maintained.
+
+Handler takes the current db and a [:key args vector] (send by dispatch):
+
+(see handlers/get-document)
+
+Middleware for validation (, argument unwrapping etc, attached by a simple vector as the first argument:
+Uses wrapping mechanism similar to ring etc.:
+
+see db/validate middleware factory for validating the current db
+
+
+Can't use subscriptions directly in a handler, because each handler only needs a single value
+
+**** Jquery integration
+self opening reveal, react doesn't like it if the dom changed without it knowing
+
+** Todo
+- Tests
+- multiple / hierarchical facets (problem with cljs-ajax)
+
+** Advantages
+Global state, write easy react components using reagent
+Efficient because of ratoms
+Subscriptions provide a custom view on the db, so your components don't have to see the global db themselves, they
+can be easily tested.
+- handler middleware is powerful
+
+subscriptions, render functions, handlers are all pure functions, so they can be easily tested.
+
+Good documentation / wiki
+
+** Disadvantages
+You must obey the rules: only event handlers can change the db, be careful with subscriptions, etc.
+(even initial values are put there via a handler, see core.cljs/dispatch-sync
+
+Reagent subtleties (all explained in the re-frame wiki):
+- when it creates a new component [component ..] or not (component ...) 
+- component won't update (2nd form components need to repeat their props in the inner function or it closes over
+  its initial instantation arguments)
+- global db, how to fit this with  ddd / bounded contexts (each subtree is an aggregate ?)
+- component library ? (there is re-comp, but integrating with existing jquery libs is difficult, but not impossible)

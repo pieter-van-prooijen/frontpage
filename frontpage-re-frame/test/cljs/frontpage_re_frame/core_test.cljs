@@ -1,7 +1,4 @@
 (ns frontpage-re-frame.core-test
-  (:require [cljs.test :refer-macros [deftest testing is]]
-            [frontpage-re-frame.core :as core]))
+  (:require [cljs.test :refer-macros [deftest testing is]]))
 
-(deftest fake-test
-  (testing "fake description"
-    (is (= 1 2))))
+

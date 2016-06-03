@@ -5,8 +5,8 @@
             [reagent.core :as reagent]
             [goog.i18n.DateTimeFormat]
             [goog.dom]
-            [jayq.core :refer [$]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [frontpage-re-frame.solr :as solr]))
 
 (declare search-result-item self-opening-reveal)
 
@@ -90,20 +90,29 @@
               [:a (on-click-attr (inc page)) "Next"]]))])))) 
  
 
-(defn author-list [facets]
-  (let [authors (:author facets)]
-    [:div
-     [:h4 "Authors"]
-     [:ul
-      (for [[author nof-docs] authors]
-        [:li {:key author}
-         [:a {:on-click (fn [e]
-                          (.preventDefault e)
-                          (re-frame/dispatch
-                           [:search-with-field [:author (if (= (count authors) 1) nil author)]]))}
-          author]
-         [:span " (" nof-docs ")"]])]]))
-
+(defn facet-list [facet-definition facets]
+  (let [search-params-sub (re-frame/subscribe [:search-params])]
+    (fn [facet-definition facets]
+      (let [{:keys [:field :title :level]} facet-definition
+            facet-pivots (get facets field)
+            search-params @search-params-sub] ; don't deref a sub in a lazy seq, not supported.
+        (when (pos? (count facet-pivots))
+          [:div
+           [(keyword (str "h" (+ level 4))) title]
+           [:ul
+            (for [{facet-value :value nof-docs :count pivot :pivot} (take 10 facet-pivots)]
+              (let [values (get-in search-params [:fields field])
+                    active?  (some (partial = facet-value) values)]
+                [:li {:key facet-value}
+                 [:a {:on-click (fn [e]
+                                  (.preventDefault e)
+                                  (re-frame/dispatch
+                                   [:search-with-field [field facet-value active?]]))
+                      :style (when active? {:font-weight "bold"})}
+                  facet-value]
+                 [:span " (" nof-docs ")"]
+                 (when-let [child-facet-definition (and active? (:pivot facet-definition))]
+                   [facet-list child-facet-definition {(:field child-facet-definition) pivot}])]))]])))))
 
 ;; Multi method which dispatches on the type of result of the vector under :search-result
 (defmulti search-result first)
@@ -111,7 +120,8 @@
 (defmethod search-result :search-items [[_ items nof-found facets]]
   [:div.row
    [:div.small-3.column
-    [author-list facets]]
+    (for [facet-definition solr/facet-definitions]
+      ^{:key (:field facet-definition)} [facet-list facet-definition facets])]
    [:div.small-9.column
     [:div.row.search-result-count
      [:div.small-12.column
@@ -150,7 +160,7 @@
              (fn []
                [:div.document
                 [:div {:dangerouslySetInnerHTML {:__html (:body @doc)}}]
-                [:span.button {:on-click (fn [_] (.foundation ($ (str "#" reveal-id)) "close"))} "Close"]])
+                [:span.button {:on-click (fn [_] (.foundation (js/$ (str "#" reveal-id)) "close"))} "Close"]])
              (fn [e]
                (re-frame/dispatch [:remove-document-result]))]))]
        
@@ -206,7 +216,7 @@
 ;; FIXME: doesn't work with animations ?
 (defn self-opening-reveal [id render-fn closed-fn]
   (letfn [(open []
-            (-> ($ (str "#" id))
+            (-> (js/$ (str "#" id))
                 (.foundation) ; initialize any plugins on the new html
                 (.foundation "open")
                 (.on "closed.zf.reveal" closed-fn))

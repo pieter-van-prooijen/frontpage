@@ -1,5 +1,6 @@
 data/
 *~
+target
 resources/public/compiled 
 node_modules
 bower_components

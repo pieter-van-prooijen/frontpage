@@ -1,0 +1,162 @@
+
+* Re-frame / Foundation 6
+Start sass autocompile in resources/public/scss:
+
+$ gulp sass:watch
+
+- optimized build
+- testing
+- hierarchical facets
+
+Log-driven architecture: split pure / impure and log pure
+
+
+* TODO 
+GraphQL / Datomic pull syntax / JSONGraph,Falcor for small-grained resources
+
+REST is for large grained resources
+
+static methods in protocols ?
+
+datadriven endpoints
+
+* TODO
+sourcemapped stacktraces don't work in nashorn repl ? (stacktrace is not a vector but a list ?)
+
+* TODO Cider / Weasel
+- fix bindings in repl for M-r (search backwards in history), these are now bound to paredit (rebound to C-S
+  instead)
+- weasel doesn't resolve clojure / clojurescript symbols outside of the core namespace ? Something to do with it
+  resetting loaded-libs  (*IN*, needs compiler env and bootstrapped core lib, so compiler env is initialized with
+  the cljs.core namespace)
+
+
+* TODO Nashorn / Server Side Rendering
+
+** Current errors:
+-  "loading: out/goog/undefined" when using js/goog.require from the repl *IN*: from double -setup invocation using
+   piggieback (nashorn_load seems to work). Make a custom nashorn-repl which can load a setup file ?
+
+** Features
+- compile cljs.core from scratch (see cljs/repl/node.clj) *IN*
+- figwheel for Nashorn / node (node is already done, Nashorn needs websocket client/server? bindings to JSR-356)
+- translation library does not work outside of the DOM
+- implement setTimeOut/setInterval using java.util libs (threading issues ?)
+
+** Polyfills
+- WebSocket *IN*
+- setTimeout / setInterval  (partly works, problems with figwheel.client/load-plugins (hangs ?))
+- Eventloop for the above to work properly: "engine.runLater(Runnable).
+  ScriptEngine thread which reads runnables from an input channel and puts their results on an output channel.
+  eval() is overloaded to put its Runnable on the input queue and read the output this it sees the result.
+  runLater access this channel also.
+
+var socket = new Websocket(uri, [protocols]);
+
+socket.send
+socket.close
+
+socket.onmesssage = function(msg) {...}
+socket.onopen ...
+socket.onclose
+socket.onerror
+
+
+** TODO repl/nashorn.clj
+- load-js-file should become part of repl-env api ? (use CLOSURE_LOAD_SCRIPT otherwise, reference in Davids code
+  not correct (not js/goog.require...)
+- remove output-to option
+- give repl-env init example (with with-compiler-env enabled).
+
+* TODO silk
+- silk "routes are data", but not when introducing silk/*** matchers (become vectors with functions) ?
+
+* TODO presentation
+Presenteer met live repl, state changes etc. (zie chestnut). Rerender op javascript reload ? (figwheel)
+
+* TODO use variants and core.match (on vectors)
+(Zie Jeanine Adkissons, "variants are not unions")
+
+* TODO features
+- autocomplete on solr words in dropdown ?
+
+Add figwheel instructions in README.txt (*IN*)
+Add production mode
+Add i18n for facets. (*IN*)
+
+* TODO OM Architecture / structuring
+- make dataflow structure more clear in code / modules:  handlers manipulating state (business logic) => render
+  from state. 
+- app state => render / do backend query using the same state (see staging func) seems kludgy. Render facets
+  entirely from the solr response and render from that. Search using a derived map ? Detect currently selected
+  facet.
+- render from nested cursor / reference cursors / immutable map 
+
+* TODO React/OM
+** React
+- createClass(spec) => createFactory(class-or-html-element-string)
+- props: immutable, passed down from parent (which might compute them from its own props or state).
+  When they change, re-render the root (preferred) or use setProps.
+- state: mutable by setState, local to component, encapsulate changens made by user interaction.
+
+** Om
+- Om builds the react component hierarchy, with om/build* at the center:
+
+  (build f cursor)
+
+  0. (pure-spec is a react class spec which delegates to its children.)
+  1. creates a new instance of (createFactory(createClass(pure-spec))
+  2. adds the invocation of the f building function (which answers at least an IRender) to the 
+     children props of 1. (So Om adds an additional level to the React (but not the DOM) hierarchy).
+     The (children) function sets this property lazily with the result of this invocation,
+     because the react owner must be created first. This happens at the first invocation of the lifecycle methods.
+  3. returns the result of 1., which is a ReactElement, to be used in React.render etc.
+
+Cursors are part of the props of the underlying react components.
+
+
+* TODO OM Puzzlers
+- only when a map / index access of a cursor gives a new map / vector do you get a new cursor, else a value.
+- om/build now also takes values instead of a cursor into the appstate, to make read-only components
+- looking up a key in a MapCursor does an automatic deref of the resulting derived cursor (because of the check
+  macro), so when is the derived actually used ? No way to get at / create this intermediate cursor yourself ?
+  *Cursors are only available in the arg list of a build function, (when not destructured), or via get-props*  
+
+-  Because the build function is called on every render, the render method get new lexical bindings when the global
+   state changes, even if the state is de-structured in the build function arguments:
+
+  (build-fn [{a :a} owner opts]
+    (om/component
+      (dom/h1 nil a))) ; value of a is fixed (deref-ed using a derived map cursor into the cursor of the component)
+                         for every invocation of build-fn. the reified instance is thrown away after each render)
+
+- facet lists with paging: how to update the child value list when the parent's local state page changes without
+  making the page part of the facet state. No way to get at the owner component of a child ?
+- Making foundation reveal (modals) work with react, assumes a static page, doesn't reattach handlers after the
+  dom is modified ? (*IN*, see util.cljs)
+- om/build answers the react descriptor (from createClass()) (which can be fed to renderComponent()). The "owner" which get passed to
+  build function is the actual react component (or rather a proxy), supports the get-state/set-state protocol.
+- om/refresh! does not work with the result of (om/build f ...), needs the owner argument passed to f (e.g. the
+  value of props.children)
+
+* TODO bugs
+- fix switch between short / long documents lists (at the end of
+  pagination). Update dom problem ? (*IN*, un-escaped html in the highlighting)
+- facets are re-rendered when selecting a document.
+
+* TODO React Puzzlers
+
+- IDidMount (invoked first time) / IDidUpdate (not invoked first time, which is not considered an update)
+- react silently strips out nested forms (happens when embedding reveals into a form), goes wrong when nesting
+happens using a reveal modal (which has a new component root
+- accidently rendering a map cursor (not deref-ed) will cause a stack overflow in react while it traverses the
+  component hierarchy.
+
+* Datalog / Datascript notes
+
+- see http://docs.datomic.com/query.html
+- :where clauses of the form [?e ?a ?v] (queries against facts) are special, only work agains DB
+instances with Datoms.
+- using custom functions: pass these via the :in clause and call with (?f
+args..)
+- query against Datascript transaction logs ?

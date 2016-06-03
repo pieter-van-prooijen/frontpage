@@ -8,8 +8,14 @@
    :page-size s/Num
    :nof-pages s/Num
    :text s/Str
-   (s/optional-key :fields) {s/Keyword s/Str}
+   (s/optional-key :fields) {s/Keyword [(s/cond-pre s/Str s/Int)]}
 })
+
+(defn update-fields-parameter [db field value remove?]
+  (update-in db [:search-params :fields] (fn [fields]
+                                           (if remove?
+                                             (update-in fields [field] (fn [values] (remove (partial = value) values)))
+                                             (update-in fields [field] (fn [values] (conj values value)))))))
 
 (defn validate [keys schema-or-validator]
   "Handler middleware factory for validating parts of the db after the main handler has run

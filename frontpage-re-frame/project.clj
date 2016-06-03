@@ -12,6 +12,10 @@
 ;;
 ;; In resources/public/scss:
 ;;   $ gulp sass:watch to automatically recompile/reload foundation
+;;
+;; Use "lein doo phantom test" to run the tests in PhantomJS
+;; (see the :doo config below and test/cljs/frontpage-reframe/runner.cljs)
+;;
 
 (defproject frontpage-re-frame "0.1.0-SNAPSHOT"
   :dependencies [[org.clojure/clojure "1.8.0"]
@@ -21,8 +25,7 @@
                  [secretary "1.2.3"]
                  [cljs-ajax "0.5.4"]
                  [prismatic/schema "1.1.1"]
-                 [camel-snake-kebab "0.4.0"]
-                 [jayq "2.5.4"]]
+                 [camel-snake-kebab "0.4.0"]]
 
   :min-lein-version "2.5.3"
 
@@ -38,7 +41,6 @@
   :source-paths ["src/clj"]
   
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
-                                  ;;[org.clojure/tools.nrepl "0.2.12"]
                                   [figwheel-sidecar "0.5.3-1"]]
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
@@ -68,11 +70,12 @@
                                    :optimizations :advanced
                                    :closure-defines {goog.DEBUG false}
                                    :pretty-print false}}]}
-  
+
+  :doo {:paths {:phantom "/home/pieter/projects/Nuon/my-nuon-btc/node_modules/phantomjs-prebuilt/lib/phantom/bin/phantomjs"}}
 
   ;; Built-in jetty 9 webserver for the index.html and the reverse proxy for Solr.
   ;; (to circumvent the cross-domain XHR request restrictions when posting documents to the Solr server)
-  :servlet {:deps [[lein-servlet/adapter-jetty9 "0.4.1"]
+  :servlet {:deps [[lein-servlet/adapter-jetty9 "0.4.1" :exclusions [org.glassfish/javax.el]]
                    [org.eclipse.jetty/jetty-proxy "9.2.6.v20141205"]]
             :webapps {"/" {:servlets {"/*" org.eclipse.jetty.servlet.DefaultServlet} 
                            :public "resources/public"}
