@@ -54,7 +54,20 @@
 
 (def facet-document-fields (map :field facet-definitions))
 
-(defn pivots [])
+
+(defn child-fields [field facet-defs-arg]
+  "Answer a list of field plus any child fields defined somewhere in facet-defs-arg"
+  (loop [facet-defs facet-defs-arg]
+    (let [facet-def (first facet-defs)
+          child-facet-def (:pivot facet-def)]
+      (when facet-def
+        (if (= (:field facet-def) field)
+          ;; match on this level, append all its pivot children
+          (cons field (child-fields (:field child-facet-def) [child-facet-def]))
+          ;; field doesn't match this level, try its pivot or move to the next on this level
+          (if-let [children (child-fields field [child-facet-def])]
+            children
+            (recur (rest facet-defs))))))))
 
 (def SolrFacetPair
   [(s/one s/Str "facet") (s/one s/Int 1)])

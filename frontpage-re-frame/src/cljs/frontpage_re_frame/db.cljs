@@ -8,14 +8,21 @@
    :page-size s/Num
    :nof-pages s/Num
    :text s/Str
-   (s/optional-key :fields) {s/Keyword [(s/cond-pre s/Str s/Int)]}
-})
+   ;; TODO: make field values a set.
+   (s/optional-key :fields) {s/Keyword #{(s/cond-pre s/Str s/Int)}}})
 
-(defn update-fields-parameter [db field value remove?]
-  (update-in db [:search-params :fields] (fn [fields]
-                                           (if remove?
-                                             (update-in fields [field] (fn [values] (remove (partial = value) values)))
-                                             (update-in fields [field] (fn [values] (conj values value)))))))
+(defn update-fields-parameter [db field value children remove?]
+  (as-> db current-db
+    (update-in current-db [:search-params :fields] (fn [fields]
+                                                     (if remove?
+                                                       (update-in fields [field] (fn [values] (disj values value)))
+                                                       (update-in fields [field] (fn [values]
+                                                                                   (conj (or values #{}) value))))))
+    ;; removing a value from a parent field resets all chilren fields.
+    (if remove?
+      (reduce (fn [db child-field]
+                (assoc-in db [:search-params :fields child-field] #{})) current-db children)
+      current-db)))
 
 (defn validate [keys schema-or-validator]
   "Handler middleware factory for validating parts of the db after the main handler has run

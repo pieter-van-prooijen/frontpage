@@ -4,6 +4,7 @@
             [re-frame.db]
             [reagent.core :as reagent]
             [goog.i18n.DateTimeFormat]
+            [goog.date.Date]
             [goog.dom]
             [clojure.string :as string]
             [frontpage-re-frame.solr :as solr]))
@@ -106,8 +107,9 @@
                 [:li {:key facet-value}
                  [:a {:on-click (fn [e]
                                   (.preventDefault e)
+                                  ;; TODO: remove all child field values when a parent is removed.
                                   (re-frame/dispatch
-                                   [:search-with-field [field facet-value active?]]))
+                                   [:search-with-fields [[field facet-value active?]] false]))
                       :style (when active? {:font-weight "bold"})}
                   facet-value]
                  [:span " (" nof-docs ")"]
@@ -140,6 +142,26 @@
     [:div.row
      [:div.small-12.column]]]])
 
+
+
+(defn field-link [field value]
+  [:a {:href "#" :on-click (fn [e]
+                             (.preventDefault e)
+                             (re-frame/dispatch [:search-with-fields [[field value false]] false]))} value])
+
+(defn date-link [js-date]
+  (let [date (goog.date.Date. js-date)]
+    [:a {:href "#" :on-click (fn [e]
+                               (.preventDefault e)
+                               (let [year (.getFullYear date)
+                                     month (inc (.getMonth date))
+                                     day (.getDate date)]
+                                 (re-frame/dispatch [:search-with-fields [[:created-on-year year false]
+                                                                          [:created-on-month month false]
+                                                                          [:created-on-day day false]]
+                                                     true])))}
+     (.format printable-date-time-format js-date)]))
+
 (defn search-result-item [item]
   (let [id (:id item)
         doc (re-frame/subscribe [:document-result id])]
@@ -167,11 +189,13 @@
        [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}] ;; render the Solr highlight tags
        
        [:div {:class "metadata"}
-        [:span (:author item)]
+        [field-link :author (:author item)]
         " | "
-        [:span (string/join ", " (:categories item))]
+        (interpose
+         ","
+         (map #(field-link :categories %)  (:categories item)))
         " | "
-        [:span (.format printable-date-time-format (:created-on item))]]])))
+        [date-link (:created-on item)]]])))
 
 (defmethod search-result :search-error [[_ error]]
   [:div.row

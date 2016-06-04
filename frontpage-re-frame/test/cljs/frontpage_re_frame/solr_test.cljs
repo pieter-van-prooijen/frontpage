@@ -47,5 +47,11 @@
       (is (= (solr/create-pivots defs {:a "foo"}) '("a,b")))))
 
   (testing "converting the top-level keys of a facet-pivots hash"
-    (is (= (solr/convert-pivots {"a_b,b" {:foo "bar"}}) {:a-b {:foo "bar"}}))))
+    (is (= (solr/convert-pivots {"a_b,b" {:foo "bar"}}) {:a-b {:foo "bar"}})))
+
+  (testing "find the list of all child fields of field"
+    (let [defs [{:field :a :pivot {:field :b}}]]
+      (is (= (solr/child-fields :a defs) '(:a :b)))
+      (is (= (solr/child-fields :b defs) '(:b)))
+      (is (= (solr/child-fields :c defs) nil)))))
 

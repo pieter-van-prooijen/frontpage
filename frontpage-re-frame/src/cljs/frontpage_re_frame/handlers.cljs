@@ -13,7 +13,7 @@
 
 (declare to-kebab-case-keyword)
 
-(def default-search-params  {:page 0 :page-size 10 :nof-pages 0})
+(def default-search-params  {:page 0 :page-size 10 :nof-pages 0 :text ""})
 (defn initialize-db  [_ _]
    (-> db/default-db
        (assoc :search-params default-search-params)))
@@ -59,15 +59,24 @@
                            [(db/validate [:search-params] db/SearchParams)]
                            search-with-text)
 
-(defn search-with-field [db [_ [field-name field-value remove?]]]
-  (re-frame/dispatch [:search])
-  (-> db
-      (db/update-fields-parameter field-name field-value remove?)
-      (assoc-in [:search-params :page] 0)))
+(defn facet-children [field]
+  "answer the children fields of field using the hierarchical facet definitions in the frontpage-re-frame.solr"
+  (rest (solr/child-fields field solr/facet-definitions)))
 
-(re-frame/register-handler :search-with-field
+(defn search-with-fields [db [_ field-name-values fields-only? ]]
+  (re-frame/dispatch [:search])
+  (as-> db current-db
+      (reduce (fn [db [field-name field-value remove?]]
+                (db/update-fields-parameter db field-name field-value (facet-children field-name) remove?))
+              current-db field-name-values)
+      (if fields-only?
+        (assoc-in current-db [:search-params :text] "*:*") ; only search on fields, not in the text
+        current-db)
+      (assoc-in current-db [:search-params :page] 0)))
+
+(re-frame/register-handler :search-with-fields
                            [(db/validate [:search-params] db/SearchParams)]
-                           search-with-field)
+                           search-with-fields)
 
 (defn search-with-page [db [_ page]]
   (let [db (assoc-in db [:search-params :page] page)]
