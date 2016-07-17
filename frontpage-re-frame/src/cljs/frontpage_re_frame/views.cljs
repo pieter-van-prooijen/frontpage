@@ -107,13 +107,12 @@
                 [:li {:key facet-value}
                  [:a {:on-click (fn [e]
                                   (.preventDefault e)
-                                  ;; TODO: remove all child field values when a parent is removed.
                                   (re-frame/dispatch
                                    [:search-with-fields [[field facet-value active?]] false]))
                       :style (when active? {:font-weight "bold"})}
                   facet-value]
                  [:span " (" nof-docs ")"]
-                 (when-let [child-facet-definition (and active? (:pivot facet-definition))]
+                 (when-let [child-facet-definition (and active? (first (:pivot facet-definition)))]
                    [facet-list child-facet-definition {(:field child-facet-definition) pivot}])]))]])))))
 
 ;; Multi method which dispatches on the type of result of the vector under :search-result
@@ -145,9 +144,9 @@
 
 
 (defn field-link [field value]
-  [:a {:href "#" :on-click (fn [e]
-                             (.preventDefault e)
-                             (re-frame/dispatch [:search-with-fields [[field value false]] false]))} value])
+  [:a {:href "#" :key value :on-click (fn [e]
+                                        (.preventDefault e)
+                                        (re-frame/dispatch [:search-with-fields [[field value false]] false]))} value])
 
 (defn date-link [js-date]
   (let [date (goog.date.Date. js-date)]
@@ -191,9 +190,9 @@
        [:div {:class "metadata"}
         [field-link :author (:author item)]
         " | "
-        (interpose
-         ","
-         (map #(field-link :categories %)  (:categories item)))
+        [:span (interpose
+                ", "
+                (map #(field-link :categories %)  (:categories item)))]
         " | "
         [date-link (:created-on item)]]])))
 

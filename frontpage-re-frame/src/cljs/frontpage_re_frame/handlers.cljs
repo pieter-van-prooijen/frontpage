@@ -1,10 +1,12 @@
 (ns frontpage-re-frame.handlers
-  (:require [clojure.string :as string]
+  (:require [frontpage-re-frame.spec-utils :as spec-utils]
+            [clojure.string :as string]
             [clojure.walk :as walk]
             [re-frame.core :as re-frame]
             [frontpage-re-frame.db :as db]
             [ajax.core :as ajax]
             [schema.core :as s]
+            [cljs.spec :as spec]
             [camel-snake-kebab.core :as csk]
             [frontpage-re-frame.solr :as solr]))
 
@@ -56,7 +58,7 @@
     (assoc-in db [:search-params :text] "")))
 
 (re-frame/register-handler :search-with-text
-                           [(db/validate [:search-params] db/SearchParams)]
+                           [(db/validate [:search-params] ::db/search-params)]
                            search-with-text)
 
 (defn facet-children [field]
@@ -75,7 +77,7 @@
       (assoc-in current-db [:search-params :page] 0)))
 
 (re-frame/register-handler :search-with-fields
-                           [(db/validate [:search-params] db/SearchParams)]
+                           [(db/validate [:search-params] ::db/search-params)]
                            search-with-fields)
 
 (defn search-with-page [db [_ page]]
@@ -84,14 +86,13 @@
     db))
 
 (re-frame/register-handler :search-with-page
-                           [(db/validate [:search-params] db/SearchParams)]
+                           [(db/validate [:search-params] ::db/search-params)]
                            search-with-page)
 
-(def search-result-validator
-  (s/validator [(s/one (s/eq :search-items) "type")
-                (s/one [solr/SolrDocument] "documents")
-                (s/one s/Num "nof-documents")
-                (s/one solr/SolrFacetPivots "facet-pivots")]))
+(spec/def ::search-result (spec/cat :type #(= % :search-items)
+                                    :documents (spec/coll-of ::solr/document [])
+                                    :nof-documents ::spec-utils/zero-or-pos-int
+                                    :facet-pivots (spec/map-of solr/facet-fields (spec/coll-of ::solr/facet-pivot []))))
 
 (defn search-result [db [_ solr-response]]
   "Translate a Solr search response and store it in the db under :search-result"
@@ -106,7 +107,7 @@
         (assoc-in [:search-params :nof-pages] (js/Math.ceil (/ nof-found page-size))))))
 
 (re-frame/register-handler :search-result
-                           [(db/validate [:search-result] search-result-validator)]
+                           [(db/validate [:search-result] ::search-result)]
                            search-result)
 
 (defn search-error [db [_ response]]
@@ -114,7 +115,8 @@
     (assoc db :search-result [:search-error msg])))
 
 (re-frame/register-handler :search-error
-                           [(db/validate [:search-result] [(s/one (s/eq :search-error) "type") (s/one s/Str "error-str")])]
+                           [(db/validate [:search-result]
+                                         (spec/cat :type #(= :search-error) :error-string :spec-util/non-blank))]
                            search-error)
 
 (defn get-document-result [db [_ solr-response]]
@@ -125,7 +127,7 @@
       db)))
 
 (re-frame/register-handler :get-document-result
-                           [(db/validate [:document-result] solr/SolrDocument)]
+                           [(db/validate [:document-result] ::solr/document)]
                            get-document-result)
 
 (re-frame/register-handler
@@ -142,9 +144,13 @@
        x))))
 
 ;; Not that this function does not convert keywords!
+;; The :field key should also have a keyword value.
 (defn to-kebab-case-keyword [x]
   (letfn [(convert-kv [[k v]]
-            [(mem-to-kebab-case-keyword k) v])
+            (let [k-keyword (mem-to-kebab-case-keyword k)]
+              (if (= k-keyword :field)
+                [k-keyword (mem-to-kebab-case-keyword v)]
+                [k-keyword v])))
           (convert-map [x]
             (if (map? x) (into {} (map convert-kv x)) x))]
     (walk/postwalk convert-map x)))
@@ -152,4 +158,5 @@
 (re-frame/register-handler
  :toggle-debug
  (fn [db _]
-   (assoc db :debug (not (:debug db)))))
+   (update-in db [:debug] not)))
+ 

@@ -1,19 +1,22 @@
 (ns frontpage-re-frame.solr
   "Solr document and query definitions"
-  (:require [schema.core :as s]
+  (:require [frontpage-re-frame.spec-utils :as spec-utils]
             [clojure.string :as string]
+            [cljs.spec :as spec]
             [camel-snake-kebab.core :as csk]))
 
-(def SolrDocument
-  "a schema for a single Solr document"
-  {:id s/Str
-   :title s/Str
-   :author s/Str
-   :created-on s/Inst
-   (s/optional-key :highlight) s/Str ; single document queries don't have a highlight
-   (s/optional-key :body) s/Str ; search results don't have a body
-   :categories (s/pred not-empty #{s/Str})})
+(spec/def ::id ::spec-utils/non-blank)
+(spec/def ::title ::spec-utils/non-blank)
+(spec/def ::author ::spec-utils/non-blank)
+(spec/def ::created-on ::spec-utils/date-time)
+(spec/def ::categories (spec-utils/set-of ::spec-utils/non-blank))
+(spec/def ::highlight string?) ; highlights are empty for '*' queries
+(spec/def ::body ::spec-utils/non-blank)
 
+;; single document queries don't have a highlight
+;; search results don't have body.
+(spec/def ::document (spec/keys :req-un [::id ::title ::author ::created-on ::categories]
+                                :option-un [::highlight ::body]))
 
 (defn transform-doc [doc]
   (-> doc
@@ -45,21 +48,25 @@
    {:field :created-on-year
     :title "Years"
     :level 0
-    :pivot {:field :created-on-month
-            :title "Months"
-            :level 1
-            :pivot {:field :created-on-day
-                    :level 2
-                    :title "Days"}}}])
+    :pivot [{:field :created-on-month
+              :title "Months"
+              :level 1
+             :pivot [{:field :created-on-day
+                      :title "Days"
+                      :level 2}]}]}])
 
-(def facet-document-fields (map :field facet-definitions))
+(def facet-fields (into #{} (comp (map :field) (remove nil?))
+                        (tree-seq
+                         (fn [node] (contains? node :pivot)) ; branch?
+                         (fn [node] (:pivot node)) ; children
+                         {:pivot facet-definitions}))) ; artificial root node, gives nil in tree-seq sequence
 
 
 (defn child-fields [field facet-defs-arg]
   "Answer a list of field plus any child fields defined somewhere in facet-defs-arg"
   (loop [facet-defs facet-defs-arg]
     (let [facet-def (first facet-defs)
-          child-facet-def (:pivot facet-def)]
+          [child-facet-def] (:pivot facet-def)]
       (when facet-def
         (if (= (:field facet-def) field)
           ;; match on this level, append all its pivot children
@@ -69,25 +76,12 @@
             children
             (recur (rest facet-defs))))))))
 
-(def SolrFacetPair
-  [(s/one s/Str "facet") (s/one s/Int 1)])
-
-;; A facet could have zero results.
-(def SolrFacetResult
-  [SolrFacetPair])
-
-(def SolrFacetFields
-  "a schema for a range of facets"
-  {(s/pred (apply hash-set facet-document-fields)) SolrFacetResult})
-
-(def SolrFacetPivot
-  {:field s/Str
-   :value (s/cond-pre s/Str s/Int)
-   :count s/Int
-   (s/optional-key :pivot) [(s/recursive  #'SolrFacetPivot)]})
-
-(def SolrFacetPivots
-  {s/Keyword [SolrFacetPivot]})
+ 
+(spec/def ::field facet-fields)
+(spec/def ::value (comp not nil?)) ; day / month / year facets give numbers.
+(spec/def ::count ::spec-utils/pos-int) ; facet should not be reported if not present
+(spec/def ::facet-pivot (spec/keys :req-un [::field ::value ::count] :opt-un [::pivot]))
+(spec/def ::pivot (spec/coll-of ::facet-pivot []))
 
 (defn create-field-param [fields]
   (string/join " " (map csk/->snake_case_string fields)))
@@ -105,12 +99,13 @@
      (if (and (get selected-fields (:field facet-definition)) (:pivot facet-definition))
        ;; selected, add any child pivot fields
        (string/join "," [(facet-name facet-definition)
-                         (first (create-pivots [(:pivot facet-definition)] selected-fields false))])
+                         (first (create-pivots (:pivot facet-definition) selected-fields false))])
        ;; not selected or single level facet, repeated because solr wants two fields in the facet.pivot parameter.
        (string/join "," (repeat (if top-level? 2 1) (facet-name facet-definition)))))))
 
 ;; Extract the first part of the comma separated pivot facet and use that for the keys
 ;; pivot keys should be strings, not keywords.
+;; The field key should have a keyword value.
 (defn convert-pivots [facet-pivots]
   (into {}
         (for [[s v] facet-pivots]

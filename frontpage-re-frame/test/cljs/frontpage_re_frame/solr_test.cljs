@@ -2,25 +2,20 @@
   (:require [frontpage-re-frame.solr :as solr]
             [frontpage-re-frame.handlers :as handlers]
             [cljs.test :refer-macros [deftest testing is]]
-            [schema.core :as s]))
+            [cljs.spec :as s]))
  
 (deftest schema
   (testing "document schema validation"
     (let [doc {:id "id" :title "title" :body "body" :author "author" :created-on (js/Date.) :categories #{"cat"}}]
-      (is (= (s/validate solr/SolrDocument doc) doc))
-      (try
-        (s/validate solr/SolrDocument {:foo "bar"})
-        (is false "should throw an error")
-        (catch js/Error e
-          (is true "should throw an error")))))
+      (is (s/valid? ::solr/document doc))
+      (is (not (s/valid? ::solr/document {:foo "bar"})))))
 
   (testing "pivot schema validation"
-    (let [facet-pivots {:a [{
-                             :field "f"
-                             :value 3
-                             :count 3
-                             :pivot [{:field "f1" :value "v" :count 1}]}]}]
-      (is (= (s/validate solr/SolrFacetPivots facet-pivots)))))) 
+    (let [facet-pivots {:field :author
+                        :value "bla"
+                        :count 3
+                        :pivot [{:field :created-on-month :value "v" :count 1}]}]
+      (is (s/valid? ::solr/facet-pivot facet-pivots))))) 
 
 (deftest extracting
   (testing "result extraction"
@@ -30,7 +25,7 @@
           response1 (handlers/to-kebab-case-keyword response)
           extracted (solr/extract-docs response1)]
       (is (= 1 (count extracted)))
-      (s/validate solr/SolrDocument (first extracted)))))
+      (is (s/valid? ::solr/document (first extracted))))))
 
 (deftest test-pivot-facets
 
@@ -41,7 +36,7 @@
       (is (= (solr/create-pivots toplevel-defs {:a-b "foo"}) '("a_b,a_b" "b_c,b_c")))))
 
   (testing "pivot"
-    (let [defs [{:field :a :pivot {:field :b}}]]
+    (let [defs [{:field :a :pivot [{:field :b}]}]]
       (is (= (solr/create-pivots defs {}) '("a,a")))
       ;; with selection, the pivot should be there
       (is (= (solr/create-pivots defs {:a "foo"}) '("a,b")))))
@@ -50,8 +45,9 @@
     (is (= (solr/convert-pivots {"a_b,b" {:foo "bar"}}) {:a-b {:foo "bar"}})))
 
   (testing "find the list of all child fields of field"
-    (let [defs [{:field :a :pivot {:field :b}}]]
+    (let [defs [{:field :a :pivot [{:field :b}]}]]
       (is (= (solr/child-fields :a defs) '(:a :b)))
       (is (= (solr/child-fields :b defs) '(:b)))
-      (is (= (solr/child-fields :c defs) nil)))))
+      (is (nil? (solr/child-fields :c defs))))))
 
+ 

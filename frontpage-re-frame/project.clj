@@ -1,6 +1,6 @@
 ;; Start developing the project:
 ;;
-;; - run solr in the main directory
+;; - run-solr in the main directory
 ;; - use "lein servlet run" to run a webserver on port 3000 and open the browser onto this page.
 ;; - jack into cider from emacs
 ;;
@@ -18,13 +18,13 @@
 ;;
 
 (defproject frontpage-re-frame "0.1.0-SNAPSHOT"
-  :dependencies [[org.clojure/clojure "1.8.0"]
-                 [org.clojure/clojurescript "1.8.51"]
+  :dependencies [[org.clojure/clojure "1.9.0-alpha8"]
+                 [org.clojure/clojurescript "1.9.93"]
                  [reagent "0.5.1"]
                  [re-frame "0.7.0"]
                  [secretary "1.2.3"]
-                 [cljs-ajax "0.5.4"]
-                 [prismatic/schema "1.1.1"]
+                 [cljs-ajax "0.5.5"]
+                 [prismatic/schema "1.1.2"]
                  [camel-snake-kebab "0.4.0"]]
 
   :min-lein-version "2.5.3"
@@ -33,7 +33,7 @@
   :plugins [[lein-cljsbuild "1.1.1"]
             [lein-figwheel "0.5.3-1" :exclusions [org.clojure/clojure org.clojure/tools.reader clj-time joda-time]]
             [lein-servlet "0.4.1"]
-            [lein-doo "0.1.6" :exclusions [org.clojure/tools.reader]]]
+            [lein-doo "0.1.7" :exclusions [org.clojure/tools.reader]]]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
                                     "test/js"]
@@ -41,7 +41,7 @@
   :source-paths ["src/clj"]
   
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
-                                  [figwheel-sidecar "0.5.3-1"]]
+                                  [figwheel-sidecar "0.5.4-5"]]
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
 
