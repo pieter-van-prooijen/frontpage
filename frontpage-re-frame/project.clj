@@ -18,30 +18,30 @@
 ;;
 
 (defproject frontpage-re-frame "0.1.0-SNAPSHOT"
-  :dependencies [[org.clojure/clojure "1.9.0-alpha8"]
-                 [org.clojure/clojurescript "1.9.93"]
-                 [reagent "0.5.1"]
-                 [re-frame "0.7.0"]
+  :dependencies [[org.clojure/clojure "1.9.0-RC1"]
+                 [org.clojure/clojurescript "1.9.946"]
+                 [org.clojure/spec.alpha "0.1.143"]
+                 [reagent "0.7.0"]
+                 [re-frame "0.10.2"]
                  [secretary "1.2.3"]
                  [cljs-ajax "0.5.5"]
-                 [prismatic/schema "1.1.2"]
                  [camel-snake-kebab "0.4.0"]]
 
   :min-lein-version "2.5.3"
 
 
-  :plugins [[lein-cljsbuild "1.1.1"]
-            [lein-figwheel "0.5.3-1" :exclusions [org.clojure/clojure org.clojure/tools.reader clj-time joda-time]]
+  :plugins [[lein-cljsbuild "1.1.5"]
+            [lein-figwheel "0.5.14" :exclusions [org.clojure/clojure org.clojure/tools.reader clj-time joda-time]]
             [lein-servlet "0.4.1"]
-            [lein-doo "0.1.7" :exclusions [org.clojure/tools.reader]]]
+            [lein-doo "0.1.8" :exclusions [org.clojure/tools.reader]]]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
                                     "test/js"]
 
   :source-paths ["src/clj"]
   
-  :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]
-                                  [figwheel-sidecar "0.5.4-5"]]
+  :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]                                  
+                                  [figwheel-sidecar "0.5.14"]] ; should be the same as the main figwheel version
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
 
@@ -69,6 +69,7 @@
                                    :output-to "resources/public/js/compiled/app.js"
                                    :optimizations :advanced
                                    :closure-defines {goog.DEBUG false}
+                                   :output-dir "resources/public/js/compiled/out-min"
                                    :pretty-print false}}]}
 
   :doo {:paths {:phantom "/home/pieter/projects/Nuon/my-nuon-btc/node_modules/phantomjs-prebuilt/lib/phantom/bin/phantomjs"}}

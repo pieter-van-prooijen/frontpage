@@ -1,7 +1,7 @@
 (ns frontpage-re-frame.db
-  (:require[cljs.spec :as spec]
-            [frontpage-re-frame.spec-utils :as spec-utils]
-            [re-frame.core :as re-frame]))
+  (:require[cljs.spec.alpha :as spec]
+           [frontpage-re-frame.spec-utils :as spec-utils]
+           [re-frame.core :as re-frame]))
 
 (spec/def ::page ::spec-utils/zero-or-pos-int)
 (spec/def ::page-size ::spec-utils/pos-int)
@@ -26,23 +26,15 @@
                 (assoc-in db [:search-params :fields child-field] #{})) current-db children)
       current-db)))
 
-;; Throw an error in case of an invalid value
-;; TODO: use official spec function or put in spec-utils
-(defn spec-validate [spec value]
-  (if (spec/valid? spec value)
-    value
-    (throw (js/Error. (spec/explain-str spec value)))))
 
-(defn validate [keys spec-or-validator]
-  "Handler middleware factory for validating parts of the db after the main handler has run
-   Use as [(validate keys schema-or-validator] in the 2nd argument of the 3-arity register-handler function"
-  (fn [handler]
-    (fn [db v]
-      (let [new-db (handler db v)
-            value (get-in new-db keys)]
-        (if (fn? spec-or-validator )
-          (spec-or-validator value)
-          (spec-validate spec-or-validator value))
-        new-db))))
+;; factory for creating a validation interceptor on the database
+(defn validate [path spec-or-validator]
+  (re-frame/after
+   (fn [db _]
+     (when ^boolean js/goog.DEBUG
+       (let [value (get-in db path)]
+         (if (fn? spec-or-validator )
+           (spec-or-validator value)
+           (spec-utils/spec-validate spec-or-validator value)))))))
 
-(def default-db {})
+(def default-db {:debug false})

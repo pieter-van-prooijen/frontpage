@@ -5,8 +5,7 @@
             [re-frame.core :as re-frame]
             [frontpage-re-frame.db :as db]
             [ajax.core :as ajax]
-            [schema.core :as s]
-            [cljs.spec :as spec]
+            [cljs.spec.alpha :as spec]
             [camel-snake-kebab.core :as csk]
             [frontpage-re-frame.solr :as solr]))
 
@@ -20,7 +19,7 @@
    (-> db/default-db
        (assoc :search-params default-search-params)))
 
-(re-frame/register-handler :initialize-db initialize-db)
+(re-frame/reg-event-db :initialize-db initialize-db)
 
 (defn search [db _]
    (ajax/GET "http://localhost:3000/solr/frontpage/select"
@@ -33,7 +32,7 @@
          :interceptors interceptors})
    db)
 
-(re-frame/register-handler :search search)
+(re-frame/reg-event-db :search search)
 
 (defn get-document [db [_ id]]
   "Retrieve a single full document from Solr."
@@ -47,7 +46,7 @@
         :interceptors interceptors})
   db)
 
-(re-frame/register-handler :get-document get-document)
+(re-frame/reg-event-db :get-document get-document)
 
 (defn search-with-text [db [_ query-text]]
   "Search with a new query from the text box"
@@ -57,9 +56,9 @@
       (assoc-in db [:search-params :fields] {}))
     (assoc-in db [:search-params :text] "")))
 
-(re-frame/register-handler :search-with-text
-                           [(db/validate [:search-params] ::db/search-params)]
-                           search-with-text)
+(re-frame/reg-event-db :search-with-text
+                       [(db/validate [:search-params] ::db/search-params)]
+                       search-with-text)
 
 (defn facet-children [field]
   "answer the children fields of field using the hierarchical facet definitions in the frontpage-re-frame.solr"
@@ -76,23 +75,23 @@
         current-db)
       (assoc-in current-db [:search-params :page] 0)))
 
-(re-frame/register-handler :search-with-fields
-                           [(db/validate [:search-params] ::db/search-params)]
-                           search-with-fields)
+(re-frame/reg-event-db :search-with-fields
+                       [(db/validate [:search-params] ::db/search-params)]
+                       search-with-fields)
 
 (defn search-with-page [db [_ page]]
   (let [db (assoc-in db [:search-params :page] page)]
     (re-frame/dispatch [:search])
     db))
 
-(re-frame/register-handler :search-with-page
-                           [(db/validate [:search-params] ::db/search-params)]
-                           search-with-page)
+(re-frame/reg-event-db :search-with-page
+                       [(db/validate [:search-params] ::db/search-params)]
+                       search-with-page)
 
 (spec/def ::search-result (spec/cat :type #(= % :search-items)
-                                    :documents (spec/coll-of ::solr/document [])
+                                    :documents (spec/coll-of ::solr/document)
                                     :nof-documents ::spec-utils/zero-or-pos-int
-                                    :facet-pivots (spec/map-of solr/facet-fields (spec/coll-of ::solr/facet-pivot []))))
+                                    :facet-pivots (spec/map-of solr/facet-fields (spec/coll-of ::solr/facet-pivot))))
 
 (defn search-result [db [_ solr-response]]
   "Translate a Solr search response and store it in the db under :search-result"
@@ -106,18 +105,18 @@
         (assoc :search-result [:search-items docs nof-found converted-facets])
         (assoc-in [:search-params :nof-pages] (js/Math.ceil (/ nof-found page-size))))))
 
-(re-frame/register-handler :search-result
-                           [(db/validate [:search-result] ::search-result)]
-                           search-result)
+(re-frame/reg-event-db :search-result
+                       [(db/validate [:search-result] ::search-result)]
+                       search-result)
 
 (defn search-error [db [_ response]]
   (let [msg (get-in response [:response :error :msg] (:status-text response))]
     (assoc db :search-result [:search-error msg])))
 
-(re-frame/register-handler :search-error
-                           [(db/validate [:search-result]
-                                         (spec/cat :type #(= :search-error) :error-string :spec-util/non-blank))]
-                           search-error)
+(re-frame/reg-event-db :search-error
+                       [(db/validate [:search-result]
+                                     (spec/cat :type #(= :search-error) :error-string :spec-util/non-blank))]
+                       search-error)
 
 (defn get-document-result [db [_ solr-response]]
   (let [response (to-kebab-case-keyword solr-response)
@@ -126,11 +125,11 @@
       (assoc db :document-result (first docs))
       db)))
 
-(re-frame/register-handler :get-document-result
-                           [(db/validate [:document-result] ::solr/document)]
-                           get-document-result)
+(re-frame/reg-event-db :get-document-result
+                       [(db/validate [:document-result] ::solr/document)]
+                       get-document-result)
 
-(re-frame/register-handler
+(re-frame/reg-event-db
  :remove-document-result
  (fn [db _]
    (dissoc db :document-result)))
@@ -155,7 +154,7 @@
             (if (map? x) (into {} (map convert-kv x)) x))]
     (walk/postwalk convert-map x)))
 
-(re-frame/register-handler
+(re-frame/reg-event-db
  :toggle-debug
  (fn [db _]
    (update-in db [:debug] not)))

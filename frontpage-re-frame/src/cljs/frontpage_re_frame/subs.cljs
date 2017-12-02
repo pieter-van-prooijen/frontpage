@@ -1,26 +1,25 @@
 (ns frontpage-re-frame.subs
-    (:require-macros [reagent.ratom :refer [reaction]])
-    (:require [re-frame.core :as re-frame]))
+  (:require [re-frame.core :as re-frame]))
 
-(re-frame/register-sub
+(re-frame/reg-sub
  :search-result
  (fn [db _]
-   (reaction (:search-result @db))))
+   (:search-result db)))
 
-(re-frame/register-sub
+(re-frame/reg-sub
  :search-params
  (fn [db _]
-   (reaction (:search-params @db))))
+   (:search-params db)))
 
-(re-frame/register-sub
+(re-frame/reg-sub
  :document-result
  (fn [db [_ id]]
    "Answer the full document for id or nil, as the current document under :document-result"
-   (let [document-result (reaction (:document-result @db))]
-     (reaction (when (= (:id @document-result) id)
-                 @document-result)))))
+   (let [document-result (:document-result db)]
+     (when (= (:id document-result) id)
+       document-result))))
 
-(re-frame/register-sub
+(re-frame/reg-sub
  :debug
  (fn [db _]
-   (reaction (:debug @db))))
+   (:debug db)))

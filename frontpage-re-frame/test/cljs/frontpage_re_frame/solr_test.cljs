@@ -2,7 +2,7 @@
   (:require [frontpage-re-frame.solr :as solr]
             [frontpage-re-frame.handlers :as handlers]
             [cljs.test :refer-macros [deftest testing is]]
-            [cljs.spec :as s]))
+            [cljs.spec.alpha :as s]))
  
 (deftest schema
   (testing "document schema validation"

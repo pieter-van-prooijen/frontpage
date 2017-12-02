@@ -1,14 +1,14 @@
 (ns frontpage-re-frame.db-test
   (:require [frontpage-re-frame.db :as db]
             [clojure.string :as string]
-            [cljs.spec :as s]
+            [cljs.spec.alpha :as s]
             [frontpage-re-frame.spec-utils :as spec-utils]
             [cljs.test :refer-macros [deftest testing is]]))
 
 (deftest spec
   (testing "spec-validate"
     (try
-      (db/spec-validate pos? -1)
+      (spec-utils/spec-validate pos? -1)
       (= true "should throw an error")
       (catch js/Error e
         (is (pos? (string/index-of (str e) "fails predicate")))))))

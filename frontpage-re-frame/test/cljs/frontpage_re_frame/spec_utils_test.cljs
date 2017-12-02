@@ -1,6 +1,6 @@
 (ns frontpage-re-frame.spec-utils-test
   (:require [frontpage-re-frame.spec-utils :as spec-utils]
-            [cljs.spec :as s]
+            [cljs.spec.alpha :as s]
             [cljs.test :refer-macros [deftest testing is]]))
 
 (deftest spec-utils-set

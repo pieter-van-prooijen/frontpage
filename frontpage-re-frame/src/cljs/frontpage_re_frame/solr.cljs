@@ -2,7 +2,7 @@
   "Solr document and query definitions"
   (:require [frontpage-re-frame.spec-utils :as spec-utils]
             [clojure.string :as string]
-            [cljs.spec :as spec]
+            [cljs.spec.alpha :as spec]
             [camel-snake-kebab.core :as csk]))
 
 (spec/def ::id ::spec-utils/non-blank)
@@ -81,7 +81,7 @@
 (spec/def ::value (comp not nil?)) ; day / month / year facets give numbers.
 (spec/def ::count ::spec-utils/pos-int) ; facet should not be reported if not present
 (spec/def ::facet-pivot (spec/keys :req-un [::field ::value ::count] :opt-un [::pivot]))
-(spec/def ::pivot (spec/coll-of ::facet-pivot []))
+(spec/def ::pivot (spec/coll-of ::facet-pivot :kind vector?))
 
 (defn create-field-param [fields]
   (string/join " " (map csk/->snake_case_string fields)))

@@ -13,22 +13,25 @@
 
 (def printable-date-time-format (goog.i18n.DateTimeFormat. "yyyy-MM-dd hh:mm"))
 
+;; Subscribe and deref in one go
+(def <sub (comp deref re-frame/subscribe))
+(def >evt re-frame/dispatch)
+
 ;; Appstate debugger
 (defn view-app-state []
-  (let [debug (re-frame/subscribe [:debug])]
-    (fn []
-      [:div.row
-       [:div.small-12.column
-        [:a {:on-click (fn [e]
-                         (.preventDefault e)
-                         (re-frame/dispatch [:toggle-debug]))} (if @debug "hide app-state" "show app-state")]
-        (when @debug
-          [:pre (with-out-str (pprint/pprint @re-frame.db/app-db))])]])))
+  (let [debug (<sub [:debug])]
+    [:div.row
+     [:div.small-12.column
+      [:a {:on-click (fn [e]
+                       (.preventDefault e)
+                       (>evt [:toggle-debug]))} (if debug "hide app-state" "show app-state")]
+      (when debug
+        [:pre (with-out-str (pprint/pprint @re-frame.db/app-db))])]]))
 
 (defn search-box []
   [:form.row {:on-submit (fn [e] (.preventDefault e)
-                           (re-frame/dispatch [:search-with-text
-                                               (.-value (goog.dom/$ "search-text"))]))}
+                           (>evt [:search-with-text
+                                  (.-value (goog.dom/$ "search-text"))]))}
    [:div.small-4.column
     [:div.input-group
      [:input.input-group-field {:id "search-text" :type "text" :placeholder "Search for..."}]
@@ -61,59 +64,54 @@
   {:href "#"
    :on-click (fn [e]
                (.preventDefault e)
-               (re-frame/dispatch [:search-with-page page]))}) 
+               (>evt [:search-with-page page]))}) 
 
 (defn pagination []
-  (let [search-params (re-frame/subscribe [:search-params])]
-    (fn []
-      (let [{:keys [page nof-pages]} @search-params
-            page-nums (build-page-nums nof-pages page)]
-        
-        [:ul.pagination {:role "navigation"}
-        
-         (if (zero? page)
-           [:li.pagination-previous.disabled {:key 0} "Previous"]
-           [:li.pagination-previous {:key 0}
-            [:a (on-click-attr (dec page)) "Previous"]])
+  (let [{:keys [page nof-pages]} (<sub [:search-params])
+        page-nums (build-page-nums nof-pages page)]
+    
+    [:ul.pagination {:role "navigation"}
+     
+     (if (zero? page)
+       [:li.pagination-previous.disabled {:key 0} "Previous"]
+       [:li.pagination-previous {:key 0}
+        [:a (on-click-attr (dec page)) "Previous"]])
 
-         ;; Can't use page-nums as a react key because of duplicate -1 entries.
-         (for [[item key] (map vector page-nums (map inc (range)))] 
-           (if (= item page)
-             [:li.current {:key key} (inc page)]
-             (if (neg? item)
-               [:li {:class "ellipsis" :key key}]
-               [:li {:key key} [:a (on-click-attr item) (inc item)]])))
-         
-         (let [last-key (+ (count page-nums) 2)]
-           (if (= page (dec nof-pages))
-             [:li.pagination-previous.disabled {:key last-key} "Next"]
-             [:li.pagination-next {:key last-key}
-              [:a (on-click-attr (inc page)) "Next"]]))])))) 
+     ;; Can't use page-nums as a react key because of duplicate -1 entries.
+     (for [[item key] (map vector page-nums (map inc (range)))] 
+       (if (= item page)
+         [:li.current {:key key} (inc page)]
+         (if (neg? item)
+           [:li {:class "ellipsis" :key key}]
+           [:li {:key key} [:a (on-click-attr item) (inc item)]])))
+     
+     (let [last-key (+ (count page-nums) 2)]
+       (if (= page (dec nof-pages))
+         [:li.pagination-previous.disabled {:key last-key} "Next"]
+         [:li.pagination-next {:key last-key}
+          [:a (on-click-attr (inc page)) "Next"]]))])) 
  
 
 (defn facet-list [facet-definition facets]
-  (let [search-params-sub (re-frame/subscribe [:search-params])]
-    (fn [facet-definition facets]
-      (let [{:keys [:field :title :level]} facet-definition
-            facet-pivots (get facets field)
-            search-params @search-params-sub] ; don't deref a sub in a lazy seq, not supported.
-        (when (pos? (count facet-pivots))
-          [:div
-           [(keyword (str "h" (+ level 4))) title]
-           [:ul
-            (for [{facet-value :value nof-docs :count pivot :pivot} (take 10 facet-pivots)]
-              (let [values (get-in search-params [:fields field])
-                    active?  (some (partial = facet-value) values)]
-                [:li {:key facet-value}
-                 [:a {:on-click (fn [e]
-                                  (.preventDefault e)
-                                  (re-frame/dispatch
-                                   [:search-with-fields [[field facet-value active?]] false]))
-                      :style (when active? {:font-weight "bold"})}
-                  facet-value]
-                 [:span " (" nof-docs ")"]
-                 (when-let [child-facet-definition (and active? (first (:pivot facet-definition)))]
-                   [facet-list child-facet-definition {(:field child-facet-definition) pivot}])]))]])))))
+  (let [search-params (<sub [:search-params])
+        {:keys [:field :title :level]} facet-definition
+        facet-pivots (get facets field)]
+    (when (pos? (count facet-pivots))
+      [:div
+       [(keyword (str "h" (+ level 4))) title]
+       [:ul
+        (for [{facet-value :value nof-docs :count pivot :pivot} (take 10 facet-pivots)]
+          (let [values (get-in search-params [:fields field])
+                active?  (some (partial = facet-value) values)]
+            [:li {:key facet-value}
+             [:a {:on-click (fn [e]
+                              (.preventDefault e)
+                              (>evt [:search-with-fields [[field facet-value active?]] false]))
+                  :style (when active? {:font-weight "bold"})}
+              facet-value]
+             [:span " (" nof-docs ")"]
+             (when-let [child-facet-definition (and active? (first (:pivot facet-definition)))]
+               [facet-list child-facet-definition {(:field child-facet-definition) pivot}])]))]])))
 
 ;; Multi method which dispatches on the type of result of the vector under :search-result
 (defmulti search-result first)
@@ -146,7 +144,7 @@
 (defn field-link [field value]
   [:a {:href "#" :key value :on-click (fn [e]
                                         (.preventDefault e)
-                                        (re-frame/dispatch [:search-with-fields [[field value false]] false]))} value])
+                                        (>evt [:search-with-fields [[field value false]] false]))} value])
 
 (defn date-link [js-date]
   (let [date (goog.date.Date. js-date)]
@@ -155,46 +153,45 @@
                                (let [year (.getFullYear date)
                                      month (inc (.getMonth date))
                                      day (.getDate date)]
-                                 (re-frame/dispatch [:search-with-fields [[:created-on-year year false]
-                                                                          [:created-on-month month false]
-                                                                          [:created-on-day day false]]
-                                                     true])))}
+                                 (>evt [:search-with-fields [[:created-on-year year false]
+                                                             [:created-on-month month false]
+                                                             [:created-on-day day false]]
+                                        true])))}
      (.format printable-date-time-format js-date)]))
 
 (defn search-result-item [item]
   (let [id (:id item)
-        doc (re-frame/subscribe [:document-result id])]
-    (fn [item]
-      [:div {:class "search-result-item"}
-       [:h3
-        [:a {:href "#" :on-click (fn [e]
-                                   (.preventDefault e)
-                                   (re-frame/dispatch [:get-document (:id item)])) }
-         (:title  item)]]
+        doc (<sub [:document-result id])]
+    [:div {:class "search-result-item"}
+     [:h3
+      [:a {:href "#" :on-click (fn [e]
+                                 (.preventDefault e)
+                                 (>evt [:get-document (:id item)])) }
+       (:title  item)]]
 
-       ;; Render the full document in a reveal.
-       [:div 
-        (when @doc
-          (let [reveal-id (str "reveal-" id)]
-            [self-opening-reveal
-             reveal-id
-             (fn []
-               [:div.document
-                [:div {:dangerouslySetInnerHTML {:__html (:body @doc)}}]
-                [:span.button {:on-click (fn [_] (.foundation (js/$ (str "#" reveal-id)) "close"))} "Close"]])
-             (fn [e]
-               (re-frame/dispatch [:remove-document-result]))]))]
-       
-       [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}] ;; render the Solr highlight tags
-       
-       [:div {:class "metadata"}
-        [field-link :author (:author item)]
-        " | "
-        [:span (interpose
-                ", "
-                (map #(field-link :categories %)  (:categories item)))]
-        " | "
-        [date-link (:created-on item)]]])))
+     ;; Render the full document in a reveal.
+     [:div 
+      (when doc
+        (let [reveal-id (str "reveal-" id)]
+          [self-opening-reveal
+           reveal-id
+           (fn []
+             [:div.document
+              [:div {:dangerouslySetInnerHTML {:__html (:body doc)}}]
+              [:span.button {:on-click (fn [_] (.foundation (js/$ (str "#" reveal-id)) "close"))} "Close"]])
+           (fn [e]
+             (>evt [:remove-document-result]))]))]
+     
+     [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}] ;; render the Solr highlight tags
+     
+     [:div {:class "metadata"}
+      [field-link :author (:author item)]
+      " | "
+      [:span (interpose
+              ", "
+              (map #(field-link :categories %)  (:categories item)))]
+      " | "
+      [date-link (:created-on item)]]]))
 
 (defmethod search-result :search-error [[_ error]]
   [:div.row
@@ -216,19 +213,17 @@
 
 
 (defn main-panel []
-  (let [result (re-frame/subscribe [:search-result])]
-    (fn []
-      [:div
-       [view-app-state]
-       [:div.row
-        [:div.small-3.column]
-        [:div.small-9.column
-         [:h1 "Re-frame + Solr"]]]
-       [:div.row
-        [:div.small-3.column]
-        [:div.small-9.column
-         [search-box]]]
-       [search-result @result]])))
+  [:div
+   [view-app-state]
+   [:div.row
+    [:div.small-3.column]
+    [:div.small-9.column
+     [:h1 "Re-frame + Solr"]]]
+   [:div.row
+    [:div.small-3.column]
+    [:div.small-9.column
+     [search-box]]]
+   [search-result (<sub [:search-result])]])
 
 
 ;; Foundation specific components
