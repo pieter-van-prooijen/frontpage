@@ -16,9 +16,6 @@
  (fn [_ _]
    db/default-db))
 
-;; Make cljs-ajax use multiple query string parameter names for vector values
-(def interceptors [(ajax/ProcessGet. ajax/params-to-str-alt)])
-
 ;; Generic ajax request effect
 (re-frame/reg-fx
  :http
@@ -29,7 +26,7 @@
                   :params params
                   :handler #(re-frame/dispatch [success-event %])
                   :error-handler #(re-frame/dispatch [failure-event %])
-                  :interceptors interceptors})))
+                  :vec-strategy :java})))
 
 (re-frame/reg-event-fx
  :search

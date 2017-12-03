@@ -41,7 +41,8 @@
   :source-paths ["src/clj"]
   
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.2"]                                  
-                                  [figwheel-sidecar "0.5.14"]] ; should be the same as the main figwheel version
+                                  [figwheel-sidecar "0.5.14"]
+                                  [doo "0.1.8"]] ; should be the same as the main figwheel version
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
 
