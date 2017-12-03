@@ -9,84 +9,83 @@
             [camel-snake-kebab.core :as csk]
             [frontpage-re-frame.solr :as solr]))
 
+(declare to-kebab-case-keyword)
+
+(re-frame/reg-event-db
+ :initialize-db
+ (fn [_ _]
+   db/default-db))
+
 ;; Make cljs-ajax use multiple query string parameter names for vector values
 (def interceptors [(ajax/ProcessGet. ajax/params-to-str-alt)])
 
-(declare to-kebab-case-keyword)
+;; Generic ajax request effect
+(re-frame/reg-fx
+ :http
+ (fn [{:keys [url params success-event failure-event]}]
+   (ajax/GET url {:format :json
+                  :response-format :json
+                  :keywords? false ; handled by kebab-case-keyword
+                  :params params
+                  :handler #(re-frame/dispatch [success-event %])
+                  :error-handler #(re-frame/dispatch [failure-event %])
+                  :interceptors interceptors})))
 
-(def default-search-params  {:page 0 :page-size 10 :nof-pages 0 :text ""})
-(defn initialize-db  [_ _]
-   (-> db/default-db
-       (assoc :search-params default-search-params)))
+(re-frame/reg-event-fx
+ :search
+ (fn [{db :db} _]
+   {:db (assoc-in db [:search-result] [:loading])
+    :http {:url "http://localhost:3000/solr/frontpage/select"
+           :params (solr/search-params (:search-params db))
+           :success-event :search-result
+           :failure-event :search-error}}))
 
-(re-frame/reg-event-db :initialize-db initialize-db)
 
-(defn search [db _]
-   (ajax/GET "http://localhost:3000/solr/frontpage/select"
-        {:format :json
-         :response-format :json
-         :keywords? false ; handled by kebab-case-keyword
-         :params (solr/search-params (:search-params db))
-         :handler #(re-frame/dispatch [:search-result %])
-         :error-handler #(re-frame/dispatch [:search-error %])
-         :interceptors interceptors})
-   db)
+(re-frame/reg-event-fx
+ :get-document
+ (fn [_ [_ id]]
+   "Retrieve a single full document from Solr."
+   {:http {:url "http://localhost:3000/solr/frontpage/select"
+           :params {:q (str "id:\"" id "\"") :wt "json" :fl (solr/create-field-param solr/document-fields)}
+           :success-event :get-document-result
+           :failure-event :search-error}}))
 
-(re-frame/reg-event-db :search search)
-
-(defn get-document [db [_ id]]
-  "Retrieve a single full document from Solr."
-  (ajax/GET "http://localhost:3000/solr/frontpage/select"
-       {:format :json
-        :response-format :json
-        :keywords? false ; handled by kebab-case-keyword
-        :params {:q (str "id:\"" id "\"") :wt "json" :fl (solr/create-field-param solr/document-fields)}
-        :handler #(re-frame/dispatch [:get-document-result %])
-        :error-handler #(re-frame/dispatch [:search-error %])
-        :interceptors interceptors})
-  db)
-
-(re-frame/reg-event-db :get-document get-document)
-
-(defn search-with-text [db [_ query-text]]
-  "Search with a new query from the text box"
-  (if-not (string/blank? query-text)
-    (let [db (assoc db :search-params (merge default-search-params {:text query-text}))]
-      (re-frame/dispatch [:search])
-      (assoc-in db [:search-params :fields] {}))
-    (assoc-in db [:search-params :text] "")))
-
-(re-frame/reg-event-db :search-with-text
-                       [(db/validate [:search-params] ::db/search-params)]
-                       search-with-text)
+(re-frame/reg-event-fx
+ :search-with-text
+ [(db/validate [:search-params] ::db/search-params)]
+ (fn [{db :db} [_ query-text]]
+   "Search with a new query from the text box"
+   (if-not (string/blank? query-text)
+     {:db (assoc db :search-params (merge db/default-search-params {:text query-text :fields {}}))
+      :dispatch [:search]}
+     {:db (assoc-in db [:search-params :text] "")})))
 
 (defn facet-children [field]
   "answer the children fields of field using the hierarchical facet definitions in the frontpage-re-frame.solr"
   (rest (solr/child-fields field solr/facet-definitions)))
 
-(defn search-with-fields [db [_ field-name-values fields-only? ]]
-  (re-frame/dispatch [:search])
-  (as-> db current-db
-      (reduce (fn [db [field-name field-value remove?]]
-                (db/update-fields-parameter db field-name field-value (facet-children field-name) remove?))
-              current-db field-name-values)
-      (if fields-only?
-        (assoc-in current-db [:search-params :text] "*:*") ; only search on fields, not in the text
-        current-db)
-      (assoc-in current-db [:search-params :page] 0)))
+(defn search-with-fields [{db :db} [_ field-name-values fields-only? ]]
+  {:db (as-> db current-db
+         (reduce (fn [db [field-name field-value remove?]]
+                   (db/update-fields-parameter db field-name field-value (facet-children field-name) remove?))
+                 current-db field-name-values)
+         (if fields-only?
+           (assoc-in current-db [:search-params :text] "*:*") ; only search on fields, not in the text
+           current-db)
+         (assoc-in current-db [:search-params :page] 0))
+   :dispatch [:search]})
 
-(re-frame/reg-event-db :search-with-fields
-                       [(db/validate [:search-params] ::db/search-params)]
-                       search-with-fields)
+(re-frame/reg-event-fx
+ :search-with-fields
+ [(db/validate [:search-params] ::db/search-params)]
+ search-with-fields)
 
-(defn search-with-page [db [_ page]]
-  (let [db (assoc-in db [:search-params :page] page)]
-    (re-frame/dispatch [:search])
-    db))
-
-(re-frame/reg-event-db :search-with-page
-                       [(db/validate [:search-params] ::db/search-params)]
-                       search-with-page)
+(re-frame/reg-event-fx
+ :search-with-page
+ [(db/validate [:search-params] ::db/search-params)]
+ (fn [{db :db} [_ page]]
+   {:db (assoc-in db [:search-params :page] page)
+    :dispatch [:search]}))
 
 (spec/def ::search-result (spec/cat :type #(= % :search-items)
                                     :documents (spec/coll-of ::solr/document)

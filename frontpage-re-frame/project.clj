@@ -21,10 +21,9 @@
   :dependencies [[org.clojure/clojure "1.9.0-RC1"]
                  [org.clojure/clojurescript "1.9.946"]
                  [org.clojure/spec.alpha "0.1.143"]
-                 [reagent "0.7.0"]
                  [re-frame "0.10.2"]
                  [secretary "1.2.3"]
-                 [cljs-ajax "0.5.5"]
+                 [cljs-ajax "0.7.3"]
                  [camel-snake-kebab "0.4.0"]]
 
   :min-lein-version "2.5.3"
@@ -33,6 +32,7 @@
   :plugins [[lein-cljsbuild "1.1.5"]
             [lein-figwheel "0.5.14" :exclusions [org.clojure/clojure org.clojure/tools.reader clj-time joda-time]]
             [lein-servlet "0.4.1"]
+            [lein-ancient "0.6.14"] ; default version 0.6.10 doesn't work
             [lein-doo "0.1.8" :exclusions [org.clojure/tools.reader]]]
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"
@@ -40,7 +40,7 @@
 
   :source-paths ["src/clj"]
   
-  :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.1"]                                  
+  :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.2"]                                  
                                   [figwheel-sidecar "0.5.14"]] ; should be the same as the main figwheel version
                    :source-paths ["src/cljs" "test/cljs" "dev"] 
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}}
@@ -55,7 +55,7 @@
                                    :output-dir "resources/public/js/compiled/out"
                                    :asset-path "js/compiled/out"
                                    :optimizations :none
-                                   :source-map-timestamp true}}
+                                   :source-map-timestamp false}} ; timestamped sources don't work in firefox ?
                        
                        {:id "test"
                         :source-paths ["src/cljs" "test/cljs" "dev"]
@@ -76,8 +76,9 @@
 
   ;; Built-in jetty 9 webserver for the index.html and the reverse proxy for Solr.
   ;; (to circumvent the cross-domain XHR request restrictions when posting documents to the Solr server)
+  ;; Start with 'lein servlet run'
   :servlet {:deps [[lein-servlet/adapter-jetty9 "0.4.1" :exclusions [org.glassfish/javax.el]]
-                   [org.eclipse.jetty/jetty-proxy "9.2.6.v20141205"]]
+                   [org.eclipse.jetty/jetty-proxy "9.4.8.v20171121"]]
             :webapps {"/" {:servlets {"/*" org.eclipse.jetty.servlet.DefaultServlet} 
                            :public "resources/public"}
                       "/solr" {:servlets {"/*" [org.eclipse.jetty.proxy.ProxyServlet$Transparent

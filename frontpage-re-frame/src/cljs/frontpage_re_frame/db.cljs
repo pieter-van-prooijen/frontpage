@@ -37,4 +37,7 @@
            (spec-or-validator value)
            (spec-utils/spec-validate spec-or-validator value)))))))
 
-(def default-db {:debug false})
+(def default-search-params  {:page 0 :page-size 10 :nof-pages 0 :text ""})
+
+(def default-db {:search-params default-search-params
+                 :debug false})
