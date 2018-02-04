@@ -11,6 +11,10 @@
 ;;   > (cljs-repl)
 ;;
 ;; In resources/public/scss:
+;;   Compile with standard sass tool:
+;;   $ sass frontpage.scss -I bower_components/foundation-sites/scss > ../css/frontpage.css
+;;
+;;   Install node-sass and gulp (or use sass -watch)
 ;;   $ gulp sass:watch to automatically recompile/reload foundation
 ;;
 ;; Use "lein doo phantom test" to run the tests in PhantomJS

@@ -32,12 +32,12 @@
   [:form.row {:on-submit (fn [e] (.preventDefault e)
                            (>evt [:search-with-text
                                   (.-value (goog.dom/$ "search-text"))]))}
-   [:div.small-4.column
+   [:div.small-8.medium-4.column
     [:div.input-group
      [:input.input-group-field {:id "search-text" :type "text" :placeholder "Search for..."}]
      [:div.input-group-button
       [:input.button {:type "submit" :value "Search"}]]]
-    [:div.small-8.column " "]]])
+    [:div.small-4.medium-8column " "]]])
 
 (defn build-page-nums [nof-pages page]
   "Build a list of page-nums to display, where -1 indicates an ellipsis
@@ -113,31 +113,34 @@
              (when-let [child-facet-definition (and active? (first (:pivot facet-definition)))]
                [facet-list child-facet-definition {(:field child-facet-definition) pivot}])]))]])))
 
+;; Show the facets of a search-items result
+(defn facet-result []
+  (let [[_ _ _ facets] (<sub [:search-result])]
+    [:div
+     (for [facet-definition solr/facet-definitions]
+       ^{:key (:field facet-definition)} [facet-list facet-definition facets])]))
+
 ;; Multi method which dispatches on the type of result of the vector under :search-result
 (defmulti search-result first)
 
 (defmethod search-result :search-items [[_ items nof-found facets]]
-  [:div.row
-   [:div.small-3.column
-    (for [facet-definition solr/facet-definitions]
-      ^{:key (:field facet-definition)} [facet-list facet-definition facets])]
-   [:div.small-9.column
-    [:div.row.search-result-count
-     [:div.small-12.column
-      [:b (str nof-found (if (= nof-found 1) " item" " items") " found." )]]]
-    [:div.row
-     [:div.small-12.column
-      [pagination]]]
-    [:div.row
-     [:div.small-12.column
-      (for [item items]
-        ;; search-result-item is a 2n form component, use metadata on the component to set the key
-        ^{:key (:id item)} [search-result-item item])]]
-    [:div.row
-     [:div.small-12.column
-      [pagination]]]
-    [:div.row
-     [:div.small-12.column]]]])
+  [:div
+   [:div.row.search-result-count
+    [:div.small-12.column
+     [:b (str nof-found (if (= nof-found 1) " item" " items") " found." )]]]
+   [:div.row
+    [:div.small-12.column
+     [pagination]]]
+   [:div.row
+    [:div.small-12.column
+     (for [item items]
+       ;; search-result-item is a 2n form component, use metadata on the component to set the key
+       ^{:key (:id item)} [search-result-item item])]]
+   [:div.row
+    [:div.small-12.column
+     [pagination]]]
+   [:div.row
+    [:div.small-12.column]]])
 
 
 
@@ -159,30 +162,42 @@
                                         true])))}
      (.format printable-date-time-format js-date)]))
 
+(defn document-in-reveal [id doc]
+  (let [reveal-id (str "reveal-" id)]
+    [self-opening-reveal
+     reveal-id
+     (fn []
+       [:div.document
+        [:div {:dangerouslySetInnerHTML {:__html (:body doc)}}]
+        [:span.button {:on-click (fn [_] (.foundation (js/$ (str "#" reveal-id)) "close"))} "Close"]])
+     (fn [e]
+       (>evt [:remove-document-result]))]))
+
+(defn document-inline [id doc]
+  [:div.document.inline
+   [:div {:dangerouslySetInnerHTML {:__html (:body doc)}}]
+   [:span.button {:on-click (fn [_] (>evt [:remove-document-result]))} "Close"]])
+
 (defn search-result-item [item]
   (let [id (:id item)
         doc (<sub [:document-result id])]
+
     [:div {:class "search-result-item"}
      [:h3
       [:a {:href "#" :on-click (fn [e]
                                  (.preventDefault e)
-                                 (>evt [:get-document (:id item)])) }
-       (:title  item)]]
+                                 (if doc
+                                   (>evt [:remove-document-result])
+                                   (>evt [:get-document (:id item)]))) }
+       (:title item)]]
 
-     ;; Render the full document in a reveal.
+     (when-not doc
+       [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}]) ;; render the Solr highlight tags
+
      [:div 
       (when doc
-        (let [reveal-id (str "reveal-" id)]
-          [self-opening-reveal
-           reveal-id
-           (fn []
-             [:div.document
-              [:div {:dangerouslySetInnerHTML {:__html (:body doc)}}]
-              [:span.button {:on-click (fn [_] (.foundation (js/$ (str "#" reveal-id)) "close"))} "Close"]])
-           (fn [e]
-             (>evt [:remove-document-result]))]))]
-     
-     [:p {:dangerouslySetInnerHTML {:__html (:highlight item)}}] ;; render the Solr highlight tags
+        (document-inline id doc)
+        #_(document-in-reveal id doc))]
      
      [:div {:class "metadata"}
       [field-link :author (:author item)]
@@ -194,36 +209,34 @@
       [date-link (:created-on item)]]]))
 
 (defmethod search-result :search-error [[_ error]]
-  [:div.row
-   [:div.small-12.column
-    [:div.callout.alert error]]])
+  [:div.callout.alert error])
 
 (defmethod search-result :loading [[_ _]]
-  [:div.row
-   [:div.small-12.column
-    [:div.callout.primary "Loading..."]]])
+  [:div.callout.primary "Loading..."])
 
 (defmethod search-result :default [_]
-  [:div.row
-   [:div.small-3.column]
-   [:div.small-9.column]])
+  [:div])
+
+(defn search-result-container []
+  [search-result (<sub [:search-result])])
 
 (def search-param
   {:page 0 :nof-pages 2 :page-size 10})
 
+(defn row [first last]
+  [:div.row
+   [:div.small-12.medium-9..column first]
+   [:div.small-12.medium-3.column last]])
 
 (defn main-panel []
   [:div
    [view-app-state]
-   [:div.row
-    [:div.small-3.column]
-    [:div.small-9.column
-     [:h1 "Re-frame + Solr"]]]
-   [:div.row
-    [:div.small-3.column]
-    [:div.small-9.column
-     [search-box]]]
-   [search-result (<sub [:search-result])]])
+   [row [:h1 "Re-frame + Solr"] ""]
+   [row [search-box] ""]
+   ;; Main result first, facet navigation second
+   [row
+    [search-result-container]
+    [facet-result]]])
 
 
 ;; Foundation specific components
