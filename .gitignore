@@ -13,3 +13,6 @@ resources/public/css/
 *.map
 *.cache.json
 *.cache.edn
+eclipse_workspace
+.nrepl_port
+.nrepl-port

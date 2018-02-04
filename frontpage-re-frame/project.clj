@@ -67,9 +67,10 @@
                        {:id "min"
                         :source-paths ["src/cljs"]
                         :compiler {:main frontpage-re-frame.core
-                                   :output-to "resources/public/js/compiled/app.js"
+                                   :output-to "resources/public/js/compiled/app-min.js"
                                    :optimizations :advanced
                                    :closure-defines {goog.DEBUG false}
+                                   :externs ["resources/public/vendor/foundation-6/js/vendor/jquery.ext.js"]
                                    :output-dir "resources/public/js/compiled/out-min"
                                    :pretty-print false}}]}
 

@@ -32,7 +32,7 @@
  :search
  (fn [{db :db} _]
    {:db (assoc-in db [:search-result] [:loading])
-    :http {:url "http://localhost:3000/solr/frontpage/select"
+    :http {:url "/solr/frontpage/select"
            :params (solr/search-params (:search-params db))
            :success-event :search-result
            :failure-event :search-error}}))
@@ -42,7 +42,7 @@
  :get-document
  (fn [_ [_ id]]
    "Retrieve a single full document from Solr."
-   {:http {:url "http://localhost:3000/solr/frontpage/select"
+   {:http {:url "/solr/frontpage/select"
            :params {:q (str "id:\"" id "\"") :wt "json" :fl (solr/create-field-param solr/document-fields)}
            :success-event :get-document-result
            :failure-event :search-error}}))
