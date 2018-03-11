@@ -1,15 +1,11 @@
-(ns frontpage-re-frame.handlers
+(ns frontpage-re-frame.handlers.core
   (:require [frontpage-re-frame.spec-utils :as spec-utils]
             [clojure.string :as string]
-            [clojure.walk :as walk]
             [re-frame.core :as re-frame]
             [frontpage-re-frame.db :as db]
             [ajax.core :as ajax]
             [cljs.spec.alpha :as spec]
-            [camel-snake-kebab.core :as csk]
             [frontpage-re-frame.solr :as solr]))
-
-(declare to-kebab-case-keyword)
 
 (re-frame/reg-event-db
  :initialize-db
@@ -84,14 +80,9 @@
    {:db (assoc-in db [:search-params :page] page)
     :dispatch [:search]}))
 
-(spec/def ::search-result (spec/cat :type #(= % :search-items)
-                                    :documents (spec/coll-of ::solr/document)
-                                    :nof-documents ::spec-utils/zero-or-pos-int
-                                    :facet-pivots (spec/map-of solr/facet-fields (spec/coll-of ::solr/facet-pivot))))
-
 (defn search-result [db [_ solr-response]]
   "Translate a Solr search response and store it in the db under :search-result"
-  (let [response (to-kebab-case-keyword solr-response)
+  (let [response (solr/to-kebab-case-keyword solr-response)
         docs (solr/extract-docs response)
         nof-found (get-in response [:response :num-found] 0)
         page-size (get-in db [:search-params :page-size])
@@ -102,7 +93,7 @@
         (assoc-in [:search-params :nof-pages] (js/Math.ceil (/ nof-found page-size))))))
 
 (re-frame/reg-event-db :search-result
-                       [(db/validate [:search-result] ::search-result)]
+                       [(db/validate [:search-result] ::db/search-result)]
                        search-result)
 
 (defn search-error [db [_ response]]
@@ -111,11 +102,11 @@
 
 (re-frame/reg-event-db :search-error
                        [(db/validate [:search-result]
-                                     (spec/cat :type #(= :search-error) :error-string :spec-util/non-blank))]
+                                     (spec/cat :type #(= :search-error) :error-string ::spec-utils/non-blank))]
                        search-error)
 
 (defn get-document-result [db [_ solr-response]]
-  (let [response (to-kebab-case-keyword solr-response)
+  (let [response (solr/to-kebab-case-keyword solr-response)
         docs (solr/extract-docs response)]
     (if (= (count docs) 1)
       (assoc db :document-result (first docs))
@@ -129,26 +120,6 @@
  :remove-document-result
  (fn [db _]
    (dissoc db :document-result)))
-
-(def mem-to-kebab-case-keyword
-  (memoize
-   (fn [x]
-     ;; Don't convert the comma separated facet pivot names
-     (if (and (string? x) (not (string/index-of x ",")))
-       (csk/->kebab-case-keyword x)
-       x))))
-
-;; Not that this function does not convert keywords!
-;; The :field key should also have a keyword value.
-(defn to-kebab-case-keyword [x]
-  (letfn [(convert-kv [[k v]]
-            (let [k-keyword (mem-to-kebab-case-keyword k)]
-              (if (= k-keyword :field)
-                [k-keyword (mem-to-kebab-case-keyword v)]
-                [k-keyword v])))
-          (convert-map [x]
-            (if (map? x) (into {} (map convert-kv x)) x))]
-    (walk/postwalk convert-map x)))
 
 (re-frame/reg-event-db
  :toggle-debug

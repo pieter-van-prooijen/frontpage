@@ -1,9 +1,15 @@
 (ns frontpage-re-frame.solr-test
   (:require [frontpage-re-frame.solr :as solr]
-            [frontpage-re-frame.handlers :as handlers]
-            [cljs.test :refer-macros [deftest testing is]]
+            [cljs.test :refer-macros [run-tests deftest testing is]]
             [cljs.spec.alpha :as s]))
- 
+
+(deftest conversion
+  (testing "converting solr respons"
+    (let [r {"camel,Case" {"camelCase" "string"}}]
+      (is (= (solr/to-kebab-case-keyword r) {"camel,Case" {:camel-case "string"}})))
+    (let [r {:kebab-case "string"}]
+      (is (= (solr/from-kebab-case-keyword r) {"kebab_case" "string"})))))
+
 (deftest schema
   (testing "document schema validation"
     (let [doc {:id "id" :title "title" :body "body" :author "author" :created-on (js/Date.) :categories #{"cat"}}]
@@ -21,8 +27,8 @@
   (testing "result extraction"
     (let [response {"responseHeader" {}
                     "response" {"docs" [{"id" "id" "title" "title" "body" "body"
-                                       "author" "author" "created_on" (js/Date.) "categories" #{"cat"}}]}}
-          response1 (handlers/to-kebab-case-keyword response)
+                                         "author" "author" "created_on" (js/Date.) "categories" #{"cat"}}]}}
+          response1 (solr/to-kebab-case-keyword response)
           extracted (solr/extract-docs response1)]
       (is (= 1 (count extracted)))
       (is (s/valid? ::solr/document (first extracted))))))

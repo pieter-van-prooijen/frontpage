@@ -3,7 +3,8 @@
   (:require [frontpage-re-frame.spec-utils :as spec-utils]
             [clojure.string :as string]
             [cljs.spec.alpha :as spec]
-            [camel-snake-kebab.core :as csk]))
+            [camel-snake-kebab.core :as csk]
+            [clojure.walk :as walk]))
 
 (spec/def ::id ::spec-utils/non-blank)
 (spec/def ::title ::spec-utils/non-blank)
@@ -13,15 +14,21 @@
 (spec/def ::highlight string?) ; highlights are empty for '*' queries
 (spec/def ::body ::spec-utils/non-blank)
 
+
 ;; single document queries don't have a highlight
 ;; search results don't have body.
 (spec/def ::document (spec/keys :req-un [::id ::title ::author ::created-on ::categories]
                                 :option-un [::highlight ::body]))
 
 (defn transform-doc [doc]
-  (-> doc
-      (assoc :created-on (js/Date. (:created-on doc)))
-      (assoc :categories (set (:categories doc)))))
+  (let [created-on (js/Date. (:created-on doc))]
+    (-> doc
+        (assoc :created-on created-on)
+        (assoc :categories (set (:categories doc)))
+        ;; re-created non-stored field for later editing
+        (assoc :created-on-year (.getFullYear created-on))
+        (assoc :created-on-month (.getMonth created-on))
+        (assoc :created-on-day (.getDate created-on)))))
 
 (defn extract-docs [response]
   (let [docs (get-in response [:response :docs])
@@ -133,3 +140,39 @@
                               (str (csk/->snake_case_string field) ":\"" value "\""))
                             values)))
                 (apply concat)))))
+
+;;
+;; Handle json key to/from keyword translation at the edge of the system
+;;
+(def mem-to-kebab-case-keyword
+  (memoize
+   (fn [x]
+     ;; Don't convert the comma separated facet pivot names
+     (if (and (string? x) (not (string/index-of x ",")))
+       (csk/->kebab-case-keyword x)
+       x))))
+
+(def mem-from-kebab-case-keyword
+  (memoize
+   csk/->snake_case_string))
+
+;; Not that this function does not convert keywords!
+;; The :field key should also have a keyword value.
+(defn to-kebab-case-keyword [x]
+  (letfn [(convert-kv [[k v]]
+            (let [k-keyword (mem-to-kebab-case-keyword k)]
+              (if (= k-keyword :field)
+                [k-keyword (mem-to-kebab-case-keyword v)]
+                [k-keyword v])))
+          (convert-map [x]
+            (if (map? x) (into {} (map convert-kv x)) x))]
+    (walk/postwalk convert-map x)))
+
+(defn from-kebab-case-keyword [x]
+  (letfn [(convert-kv [[k v]]
+            (let [s (mem-from-kebab-case-keyword k)]
+              [s v]))
+          (convert-map [x]
+            (if (map? x) (into {} (map convert-kv x)) x))]
+    (walk/postwalk convert-map x)))
+

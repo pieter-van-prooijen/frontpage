@@ -1,11 +1,14 @@
 (ns frontpage-re-frame.core
-    (:require [reagent.core :as reagent]
-              [re-frame.core :as re-frame]
-              [frontpage-re-frame.handlers] ; explicit require for Closure compiler
-              [frontpage-re-frame.subs]   ; same here
-              [frontpage-re-frame.routes :as routes]
-              [frontpage-re-frame.views :as views]
-              [frontpage-re-frame.config :as config]))
+  (:require [reagent.core :as reagent]
+            [re-frame.core :as re-frame]
+            
+            ;; explicit requires for the Closure compiler, won't be executed otherwise
+            [frontpage-re-frame.handlers.core]
+            [frontpage-re-frame.handlers.editable]
+            [frontpage-re-frame.subs]
+            [frontpage-re-frame.routes :as routes]
+            [frontpage-re-frame.views.core :as views]
+            [frontpage-re-frame.config :as config]))
 
 (when config/debug?
   (println "dev mode"))

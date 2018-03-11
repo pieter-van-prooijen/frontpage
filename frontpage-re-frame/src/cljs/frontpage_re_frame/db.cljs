@@ -1,7 +1,8 @@
 (ns frontpage-re-frame.db
   (:require[cljs.spec.alpha :as spec]
            [frontpage-re-frame.spec-utils :as spec-utils]
-           [re-frame.core :as re-frame]))
+           [re-frame.core :as re-frame]
+           [frontpage-re-frame.solr :as solr]))
 
 (spec/def ::page ::spec-utils/zero-or-pos-int)
 (spec/def ::page-size ::spec-utils/pos-int)
@@ -12,6 +13,11 @@
 (spec/def ::fields (spec/map-of keyword? (spec-utils/set-of (spec/or :number number? :string string?))))
 
 (spec/def ::search-params (spec/keys :req-un [::page ::page-size ::nof-pages ::text] :opt-un [::fields]))
+
+(spec/def ::search-result (spec/cat :type #(= % :search-items)
+                                    :documents (spec/coll-of ::solr/document)
+                                    :nof-documents ::spec-utils/zero-or-pos-int
+                                    :facet-pivots (spec/map-of solr/facet-fields (spec/coll-of ::solr/facet-pivot))))
 
 (defn update-fields-parameter [db field value children remove?]
   (as-> db current-db
@@ -27,7 +33,7 @@
       current-db)))
 
 
-;; factory for creating a validation interceptor on the database
+;; factory for creating a validation interceptor on the database in dev builds
 (defn validate [path spec-or-validator]
   (re-frame/after
    (fn [db _]
