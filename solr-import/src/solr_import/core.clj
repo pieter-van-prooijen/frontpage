@@ -4,11 +4,11 @@
             [clojure.data.zip.xml :as zip-xml]
             [clojure.java.io :as io]
             [clojure.string]
-            [flux.http]
-            [flux.core :as flux]
             [clj-time.core :as t]
             [clj-time.format])
-  (:import [org.jsoup Jsoup]))
+  (:import [org.apache.solr.client.solrj.impl HttpSolrClient$Builder]
+           [org.apache.solr.common SolrInputDocument]
+           [org.jsoup Jsoup]))
 
 (def post-formatter (clj-time.format/formatter "yyyy-MM-dd' 'HH:mm:ss"))
 (def solr-formatter (clj-time.format/formatter "yyyy-MM-dd'T'HH:mm:ss'Z'"))
@@ -42,15 +42,15 @@
         categories (remove clojure.string/blank? (clojure.string/split (:categories filtered) #",+"))
         body (str (:body post) (:body_more filtered))
         created-on (get-date (:created_on filtered))]
-        (-> filtered
-            (assoc :created_on (to-solr created-on))
-            (assoc :created_on_year (t/year created-on))
-            (assoc :created_on_month (t/month created-on))
-            (assoc :created_on_day (t/day created-on))
-            (assoc :body body)
-            (assoc :extracted_body_text (extract-html-text body))
-            (assoc :categories (if (seq categories) categories ["uncategorized"]))
-            (assoc :id (create-id (:permalink filtered))))))
+    (-> filtered
+        (assoc :created_on (to-solr created-on))
+        (assoc :created_on_year (t/year created-on))
+        (assoc :created_on_month (t/month created-on))
+        (assoc :created_on_day (t/day created-on))
+        (assoc :body body)
+        (assoc :extracted_body_text (extract-html-text body))
+        (assoc :categories (if (seq categories) categories ["uncategorized"]))
+        (assoc :id (create-id (:permalink filtered))))))
 
 (defn extract-posts [input-stream]
   "Answer a lazy seq of posts reading from input-stream."
@@ -59,20 +59,28 @@
     (for [row-loc (zip-xml/xml-> custom-loc :row)]
       (extract-post row-loc))))
 
-(defn create-connection [] (flux.http/create "http://localhost:8983/solr" :frontpage))
+(defn create-client [] (.build (HttpSolrClient$Builder. "http://localhost:8983/solr/frontpage")))
+
+(defn ^SolrInputDocument to-solr-input-document [m]
+  (let [d (SolrInputDocument. (into-array String []))]
+    (doseq [[k v] m]
+      (.addField d (name k) v))
+    d))
 
 (defn load-posts [file]
   (with-open [input-stream (io/input-stream file)]
-    (flux/with-connection (create-connection)
-      (doseq [post-partition (partition 100 100 [] (extract-posts input-stream))]
-        (doseq [post post-partition]
-          (flux/add post))
-        (flux/commit)))))
+    (let [client (create-client)]
+      (->> (extract-posts input-stream)
+           (map to-solr-input-document)
+           (partition-all 500)
+           (map (fn [part]
+                  (.add client (.iterator part))
+                  (.commit client)))
+           (doall)))))
 
 (defn delete-all []
-  (flux/with-connection (create-connection)
-    (flux/delete-by-query "*:*")
-    (flux/commit)))
+  (let [client (create-client)]
+    (.deleteByQuery client "*:*")))
 
 (defn -main [& args]
   "Run with the first argument being the file to import, or --delete to delete all"

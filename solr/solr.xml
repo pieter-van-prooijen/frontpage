@@ -17,16 +17,5 @@
 -->
 
 <solr>
- 
- <cores adminPath="/admin/cores" host="${host:}" hostPort="${jetty.port:8983}" hostContext="${hostContext:solr}">
-    <core name="frontpage" instanceDir="core0" />
- </cores>    
- 
-
-  <shardHandlerFactory name="shardHandlerFactory"
-    class="HttpShardHandlerFactory">
-    <int name="socketTimeout">${socketTimeout:0}</int>
-    <int name="connTimeout">${connTimeout:0}</int>
-  </shardHandlerFactory>
 
 </solr>

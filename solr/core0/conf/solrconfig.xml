@@ -21,7 +21,7 @@
  It is *not* a good example to work from. 
 -->
 <config>
-  <luceneMatchVersion>4.7</luceneMatchVersion>
+  <luceneMatchVersion>7.2</luceneMatchVersion>
   <!--  The DirectoryFactory to use for indexes.
         solr.StandardDirectoryFactory, the default, is filesystem based.
         solr.RAMDirectoryFactory is memory based, not persistent, and doesn't work with replication. -->
@@ -72,19 +72,13 @@
     <requestParsers enableRemoteStreaming="false" multipartUploadLimitInKB="2048" formdataUploadLimitInKB="2048" />
   </requestDispatcher>
   
-  <requestHandler name="standard" class="solr.StandardRequestHandler" default="true" />
-  <requestHandler name="/analysis/field" startup="lazy" class="solr.FieldAnalysisRequestHandler" />
-  <requestHandler name="/update" class="solr.UpdateRequestHandler"  />
-  <requestHandler name="/admin/" class="org.apache.solr.handler.admin.AdminHandlers" />
-     
-  <requestHandler name="/admin/ping" class="solr.PingRequestHandler">
-    <lst name="invariants">
-      <str name="q">solrpingquery</str>
-    </lst>
+  <requestHandler name="/select" class="solr.SearchHandler" default="true" >
     <lst name="defaults">
-      <str name="echoParams">all</str>
+      <str name="df">text</str>
     </lst>
   </requestHandler>
+  <requestHandler name="/analysis/field" startup="lazy" class="solr.FieldAnalysisRequestHandler" />
+  <requestHandler name="/update" class="solr.UpdateRequestHandler"  />
    
   <!-- config for the admin interface --> 
   <admin>
