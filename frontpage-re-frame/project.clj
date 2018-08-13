@@ -31,10 +31,7 @@
                  [org.clojure/spec.alpha "0.1.143"]
                  [re-frame "0.10.5" :exclusions [reagent]]
 
-                 ;; Use react 0.16
-                 [reagent "0.8.0-alpha2"
-                  :exclusions [cljsjs/react cljsjs/react-dom cljsjs/react-dom-server]]
-                 [cljsjs/react-dom "16.2.0-3"]
+                 [reagent "0.8.0"]
                  
                  [secretary "1.2.3"]
                  [cljs-ajax "0.7.3"]
@@ -56,7 +53,7 @@
   
   :profiles {:dev {:dependencies [[com.cemerick/piggieback "0.2.2"]                                  
                                   [figwheel-sidecar "0.5.15"]
-                                  [day8.re-frame/re-frame-10x "0.2.0-react16"]
+                                  [day8.re-frame/re-frame-10x "0.3.3-react16"]
                                   [day8.re-frame/test "0.1.5"]
                                   [doo "0.1.8"]] ; should be the same as the main figwheel version
                    :source-paths ["src/cljs" "test/cljs" "dev"] 

@@ -4,6 +4,7 @@
             [re-frame.db]
             [reagent.core :as reagent]
             [goog.i18n.DateTimeFormat]
+            [goog.i18n.NumberFormat]
             [goog.date.Date]
             [goog.dom]
             [clojure.string :as string]
@@ -15,6 +16,7 @@
 (declare search-result-item self-opening-reveal)
 
 (def printable-date-time-format (goog.i18n.DateTimeFormat. "yyyy-MM-dd hh:mm"))
+(def printable-number-format (goog.i18n.NumberFormat. goog.i18n.NumberFormat/Format.DECIMAL))
 
 ;; Appstate debugger
 (defn view-app-state []
@@ -74,7 +76,7 @@
   [:div
    [:div.columns.is-mobile.search-result-count
     [:div.column
-     [:b (str nof-found (if (= nof-found 1) " item" " items") " found." )]]
+     [:b (str (.format printable-number-format nof-found) (if (= nof-found 1) " item" " items") " found." )]]
     [:div.colum
      (when (pos? nof-found)
        [:a.is-hidden-tablet {:href "#facets"} "facets"])]]

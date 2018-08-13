@@ -20,5 +20,7 @@ em { color: red }
 
 /* Document settings */
 .document img { margin: $global-margin }
-.document.inline { border: 2px gray solid }
+.document.inline {
+    padding: $global-padding;
+    border: 2px gray solid }
 
